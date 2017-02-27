@@ -1,0 +1,7 @@
+[package]
+name = "tinycc"
+version = "0.1.0"
+authors = ["iTitou"]
+
+[dependencies]
+plex = "0.0.3"

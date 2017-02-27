@@ -1,0 +1,55 @@
+[root]
+name = "tinycc"
+version = "0.1.0"
+dependencies = [
+ "plex 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "bit-set"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "bit-vec 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "bit-vec"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "lalr"
+version = "0.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[[package]]
+name = "plex"
+version = "0.0.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "lalr 0.0.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "redfa 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "redfa"
+version = "0.0.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+dependencies = [
+ "bit-set 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "vec_map 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "vec_map"
+version = "0.6.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+
+[metadata]
+"checksum bit-set 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)" = "d9bf6104718e80d7b26a68fdbacff3481cfc05df670821affc7e9cbc1884400c"
+"checksum bit-vec 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)" = "5b97c2c8e8bbb4251754f559df8af22fb264853c7d009084a576cdf12565089d"
+"checksum lalr 0.0.1 (registry+https://github.com/rust-lang/crates.io-index)" = "c3f005e993fb11b348b5bf3ac83084a17dba1e7c315d0c241e716025f162cbec"
+"checksum plex 0.0.3 (registry+https://github.com/rust-lang/crates.io-index)" = "eb551982cf398c5620e6865fdf5c3d679b86070b2fb1f8b67ebe7d84c5bd92ed"
+"checksum redfa 0.0.2 (registry+https://github.com/rust-lang/crates.io-index)" = "29cc2771cc9f5fb0061cdedc05a37170254694dffec6b89920a6e767f08c4220"
+"checksum vec_map 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)" = "cac5efe5cb0fa14ec2f84f83c701c562ee63f6dcc680861b21d65c682adfb05f"

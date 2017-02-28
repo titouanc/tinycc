@@ -1,22 +1,26 @@
-#[derive(Debug, Clone)]
-pub enum Token {
-    Integer(i64),
-    Plus,
-    Whitespace,
-}
+use ::tokens::*;
+use ::tokens::Token::*;
 
 lexer! {
     fn next_token(text: 'a) -> (Token, &'a str);
 
-    r#"\+"# => (Token::Plus, text),
+    r#"[ \n\t]"# => (Whitespace, text),
+    r#"\+"# => (Plus, text),
+    r#"-"# => (Minus, text),
+    r#"\*"# => (Times, text),
+    r#"/"# => (Divide, text),
+    r#","# => (Comma, text),
+    r#";"# => (Semicol, text),
+
+    r#"[a-zA-Z_][a-zA-Z0-9_]*"# => (Name(text.to_owned()), text),    
+
     r#"[0-9]+"# => {
         (if let Ok(i) = text.parse(){
-            Token::Integer(i)
+            Integer(i)
         } else {
             panic!("Integer {} is out of range", text);
         }, text)
     },
-    r#" "# => (Token::Whitespace, text),
 }
 
 
@@ -31,6 +35,7 @@ impl<'a> Lexer<'a> {
     }
 }
 
+
 impl<'a> Iterator for Lexer<'a> {
     type Item = (Token, Span);
 
@@ -43,7 +48,7 @@ impl<'a> Iterator for Lexer<'a> {
             };
 
             match tok {
-                (Token::Whitespace, _) => {
+                (Whitespace, _) => {
                     continue;
                 }
                 (tok, sp) => {
@@ -54,8 +59,8 @@ impl<'a> Iterator for Lexer<'a> {
     }
 }
 
-
-#[derive(Debug, Clone, Copy)]
+/// Source location information througout the parsing process
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub struct Span {
     pub lo: usize,
     pub hi: usize
@@ -64,4 +69,50 @@ pub struct Span {
 fn span_in(s: &str, t: &str) -> Span {
     let lo = s.as_ptr() as usize - t.as_ptr() as usize;
     Span {lo: lo, hi: lo+s.len(),}
+}
+
+
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn test_str(input: &str, tok: Token) {
+        let mut lex = Lexer::new(input);
+        assert_eq!(lex.next(), Some((tok, Span {lo: 0, hi: input.len()})));
+    }
+
+    #[test]
+    fn parse_int() {
+        test_str("42", Integer(42));
+        test_str("-42", Integer(-42));
+    }
+
+    #[test]
+    fn parse_name() {
+        test_str("Hello", Name("Hello".to_owned()));
+        test_str("hello", Name("hello".to_owned()));
+        test_str("_", Name("_".to_owned()));
+        test_str("H3ll0", Name("H3ll0".to_owned()));
+    }
+
+    #[test]
+    fn parse_qchar() {
+        test_str("'a'", Qchar('a'));    
+    }
+
+    #[test]
+    fn parse_keywords() {
+        test_str("int", Int);
+        test_str("char", Char);
+        test_str("while", While);
+        test_str("if", If);
+        test_str("else", Else);
+    }
+
+    #[test]
+    #[should_panic]
+    fn it_panics() {
+        assert_eq!("Hello", "world");
+    }
 }

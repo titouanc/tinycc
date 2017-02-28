@@ -1,6 +1,11 @@
 use lexer::Span;
 
 #[derive(Debug)]
+pub struct Program {
+    pub statements: Vec<Expr>
+}
+
+#[derive(Debug)]
 pub struct Expr {
     pub span: Span,
     pub node: Node,

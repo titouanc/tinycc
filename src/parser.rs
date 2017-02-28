@@ -1,6 +1,9 @@
 use ::lexer::*;
-use ::lexer::Token::*;
+use ::tokens::*;
+use ::tokens::Token::*;
 use ::ast::*;
+
+pub type Parsed = Result<Expr, (Option<(Token, Span)>, &'static str)>;
 
 parser! {
     fn parse_(Token, Span);
@@ -20,7 +23,6 @@ parser! {
     }
 }
 
-pub fn parse<I: Iterator<Item=(Token, Span)>>(i: I) ->
-             Result<Expr, (Option<(Token, Span)>, &'static str)> {
+pub fn parse<I: Iterator<Item=(Token, Span)>>(i: I) -> Parsed {
     parse_(i)
 }

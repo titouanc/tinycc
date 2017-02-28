@@ -2,6 +2,11 @@
 name = "tinycc"
 version = "0.1.0"
 authors = ["iTitou"]
+description = "Compiler for the Tiny language"
+
+[[bin]]
+path = "src/main.rs"
+name = "tinycc"
 
 [dependencies]
 plex = "0.0.3"

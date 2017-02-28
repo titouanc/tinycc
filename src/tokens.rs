@@ -28,9 +28,9 @@ pub enum Token {
     Not,
 
     // Paired
-    Lpar  ,   Rpar  ,
-    Lbrace,   Rbrace,
-    Lbrack,   RBrack,
+    LParen,   RParen,
+    LBrace,   RBrace,
+    LBrack,   RBrack,
 
     // Separators
     Comma,

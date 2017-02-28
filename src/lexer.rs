@@ -4,17 +4,27 @@ use ::tokens::Token::*;
 lexer! {
     fn next_token(text: 'a) -> (Token, &'a str);
 
-    r#"[ \n\t]"# => (Whitespace, text),
+    r#"[ \n\t]+"# => (Whitespace, text),
     r#"\+"# => (Plus, text),
     r#"\*"# => (Times, text),
     "-" => (Minus, text),
     "/" => (Divide, text),
     "," => (Comma, text),
     ";" => (Semicol, text),
+    "==" => (Equal, text),
+    "=" => (Assign, text),
+
+    r#"\("# => (LParen, text),
+    r#"\)"# => (RParen, text),
+    r#"\["# => (LBrack, text),
+    r#"\]"# => (RBrack, text),
+    r#"\{"# => (LBrace, text),
+    r#"\}"# => (RBrace, text),
 
     "while" => (While, text),
     "if" => (If, text),
     "else" => (Else, text),
+    "return" => (Return, text),
 
     "int" => (Int, text),
     "char" => (Char, text),
@@ -90,12 +100,12 @@ mod tests {
     }
 
     #[test]
-    fn parse_int() {
+    fn lex_int() {
         test_str("42", Integer(42));
     }
 
     #[test]
-    fn parse_name() {
+    fn lex_name() {
         test_str("Hello", Name("Hello".to_owned()));
         test_str("hello", Name("hello".to_owned()));
         test_str("_", Name("_".to_owned()));
@@ -103,30 +113,35 @@ mod tests {
     }
 
     #[test]
-    fn parse_qchar() {
+    fn lex_qchar() {
         test_str("'a'", Qchar('a'));    
     }
 
     #[test]
-    fn parse_operators() {
+    fn lex_atom_tokens() {
+        test_str("=", Assign);
+        test_str("==", Equal);
         test_str("+", Plus);
         test_str("-", Minus);
         test_str("*", Times);
         test_str("/", Divide);
+        test_str("(", LParen);
+        test_str(")", RParen);
+        test_str("[", LBrack);
+        test_str("]", RBrack);
+        test_str("{", LBrace);
+        test_str("}", RBrace);
+        test_str(",", Comma);
+        test_str(";", Semicol);
     }
 
     #[test]
-    fn parse_keywords() {
+    fn lex_keywords() {
         test_str("int", Int);
         test_str("char", Char);
         test_str("while", While);
         test_str("if", If);
         test_str("else", Else);
-    }
-
-    #[test]
-    #[should_panic]
-    fn it_panics() {
-        assert_eq!("Hello", "world");
+        test_str("return", Return);
     }
 }

@@ -19,7 +19,7 @@ It suffices to write a program t2s that
 * A comment starts with // and continues until the end of the line.
     
 ## Other tokens
-* **INT** int`
+* **INT** `int`
 * **IF** `if`
 * **ELSE** `else`
 * **NEQUAL** `!=`
@@ -55,84 +55,67 @@ It suffices to write a program t2s that
 * `[string]*` means zero or more occurrences of `string`, where ``string` is a sequence of symbols.
 * Otherwise, the rules are as in yacc/bison specifications.
 
-```
-program     : [declaration]+
-        ;
+    program         : [declaration]+
 
-declaration : fun_declaration
-        | var_declaration
-        ;
+    declaration     : fun_declaration
+                    | var_declaration
 
-fun_declaration : type NAME LPAR formal_pars RPAR block
-        ;
+    fun_declaration : type NAME LPAR formal_pars RPAR block
 
-formal_pars : formal_par [ COMMA formal_par ]*
-        |   // empty
-        ;
+    formal_pars     : formal_par [ COMMA formal_par ]*
+                    | // empty
 
-formal_par  : type NAME
-        ;
+    formal_par      : type NAME
 
-block       : LBRACE var_declaration* statements RBRACE
-        ;
+    block           : LBRACE var_declaration* statements RBRACE
 
-var_declaration : type NAME SEMICOLON
-        ;
+    var_declaration : type NAME SEMICOLON
 
-type        : INT
-        | CHAR
-        | type LBRACK exp RBRACK // array type
-        ;
+    type            : INT
+                    | CHAR
+                    | type LBRACK exp RBRACK    // array type
 
-statements  : statement [ SEMICOLON statement]*
-        |
-        ;
+    statements      : statement [ SEMICOLON statement]*
+                    |                           // empty
 
-statement   : IF LPAR exp RPAR statement
-        | IF LPAR exp RPAR statement ELSE statement
-        | WHILE LPAR exp RPAR statement
-        | lexp ASSIGN exp
-        | RETURN exp 
-        | NAME LPAR pars RPAR       // function call
-        | block
-        | WRITE exp
-        | READ lexp
-        ;
+    statement       : IF LPAR exp RPAR statement
+                    | IF LPAR exp RPAR statement ELSE statement
+                    | WHILE LPAR exp RPAR statement
+                    | lexp ASSIGN exp
+                    | RETURN exp
+                    | NAME LPAR pars RPAR       // function call
+                    | block
+                    | WRITE exp
+                    | READ lexp
 
-lexp        : var
-        | lexp LBRACK exp RBRACK    // array access
-        ;
+    lexp            : var
+                    | lexp LBRACK exp RBRACK    // array access
 
-exp     : lexp
-        | exp binop exp     
-        | unop exp
-        | LPAR exp RPAR
-        | NUMBER 
-        | NAME LPAR pars RPAR       // function call
-        | QCHAR
-        | LENGTH lexp           // size of an array
-        ;
+    exp             : lexp
+                    | exp binop exp
+                    | unop exp
+                    | LPAR exp RPAR
+                    | NUMBER
+                    | NAME LPAR pars RPAR       // function call
+                    | QCHAR
+                    | LENGTH lexp               // size of an array
 
-binop       : MINUS
-        | PLUS
-        | TIMES
-        | DIVIDE
-        | EQUAL
-        | NEQUAL
-        | GREATER
-        | LESS
-        ;
+    binop           : MINUS
+                    | PLUS
+                    | TIMES
+                    | DIVIDE
+                    | EQUAL
+                    | NEQUAL
+                    | GREATER
+                    | LESS
 
-unop        : MINUS
-        | NOT
-        ;
+    unop            : MINUS
+                    | NOT
 
-pars        : exp [COMMA exp]*  
-        | 
-        ;
+    pars            : exp [COMMA exp]*
+                    |                           // empty
 
-var     : NAME
-```
+    var             : NAME
 
 # Semantics
 

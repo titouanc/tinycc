@@ -100,12 +100,12 @@ mod tests {
     }
 
     #[test]
-    fn lex_int() {
+    fn int() {
         test_str("42", Integer(42));
     }
 
     #[test]
-    fn lex_name() {
+    fn name() {
         test_str("Hello", Name("Hello".to_owned()));
         test_str("hello", Name("hello".to_owned()));
         test_str("_", Name("_".to_owned()));
@@ -113,30 +113,38 @@ mod tests {
     }
 
     #[test]
-    fn lex_qchar() {
+    fn qchar() {
         test_str("'a'", Qchar('a'));    
     }
 
     #[test]
-    fn lex_atom_tokens() {
+    fn operators() {
         test_str("=", Assign);
         test_str("==", Equal);
         test_str("+", Plus);
         test_str("-", Minus);
         test_str("*", Times);
         test_str("/", Divide);
+    }
+
+    #[test]
+    fn paired(){
         test_str("(", LParen);
         test_str(")", RParen);
         test_str("[", LBrack);
         test_str("]", RBrack);
         test_str("{", LBrace);
         test_str("}", RBrace);
+    }
+
+    #[test]
+    fn separators(){
         test_str(",", Comma);
         test_str(";", Semicol);
     }
 
     #[test]
-    fn lex_keywords() {
+    fn keywords() {
         test_str("int", Int);
         test_str("char", Char);
         test_str("while", While);

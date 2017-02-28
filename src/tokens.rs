@@ -4,7 +4,7 @@ pub enum Token {
     Name(String),
 
     // Literals
-    Integer(i64),
+    Integer(i32),
     Qchar(char),
 
     // Types

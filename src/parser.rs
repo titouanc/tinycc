@@ -1,7 +1,7 @@
+use ::ast::*;
 use ::lexer::*;
 use ::tokens::*;
 use ::tokens::Token::*;
-use ::ast::*;
 
 pub type Parsed = Result<Program, (Option<(Token, Span)>, &'static str)>;
 
@@ -29,16 +29,16 @@ parser! {
     }
 
     fundecl: Declaration {
-        typ[rettype] Name(name) LParen formal_params[params] RParen block => {
-            Declaration::Func(name, rettype, params)
+        typ[rettype] Name(name) LParen formal_params[params] RParen block[body] => {
+            Declaration::Func(name, rettype, params, body)
         }
     }
 
     formal_params: Vec<(Type, String)> {
         => vec![],
-        typ[t] Name(name) => vec![(t, name)],
-        formal_params[mut left] Comma typ[t] Name(name) => {
-            left.push((t, name));
+        formal_arg[arg] => vec![arg],
+        formal_params[mut left] Comma formal_arg[arg] => {
+            left.push(arg);
             left
         }
     }
@@ -53,6 +53,7 @@ parser! {
 
     statements: Vec<Statement> {
         => vec![],
+        statement[s] => vec![s],
         statements[mut prev] Semicol statement[s] => {
             prev.push(s);
             prev
@@ -60,6 +61,7 @@ parser! {
     }
 
     statement: Statement {
+        typ[t] Name(name) Semicol => Statement::LocalDecl(name, t),
         If LParen expr[cond] RParen statement[cons] => {
             Statement::Condition(Box::new(cond), Box::new(cons), Box::new(None))
         },
@@ -118,32 +120,57 @@ mod tests {
         assert_eq!(res[0], decl);
     }
 
+    fn var(name: &str, typ: Type) -> Declaration {
+        Declaration::Var(name.to_string(), typ)
+    }
+
+    fn func(name: &str, ret: Type, args: Vec<(Type, String)>, body: Vec<Statement>) -> Declaration {
+        Declaration::Func(name.to_string(), ret, args, body)
+    }
+
+    fn int_f(args: Vec<(Type, String)>, body: Vec<Statement>) -> Declaration {
+        func("f", Type::Int, args, body)
+    }
+
     #[test]
     fn var_decl(){
-        test_str_decl("int i;",
-                      Declaration::Var("i".to_owned(), Type::Int));
-        test_str_decl("char c;",
-                      Declaration::Var("c".to_owned(), Type::Char));
+        test_str_decl("int i;", var("i", Type::Int));
+        test_str_decl("char c;", var("c", Type::Char));
     }
 
     #[test]
-    fn fundecl_noargs_nobody(){
-        test_str_decl("int f(){}",
-                      Declaration::Func("f".to_owned(), Type::Int, vec![]));
+    fn fundecl_noargs(){
+        test_str_decl("int f(){}", int_f(vec![], vec![]));
     }
 
     #[test]
-    fn fundecl_1arg_nobody(){
+    fn fundecl_1arg(){
         test_str_decl("int f(int x){}",
-                      Declaration::Func("f".to_owned(), Type::Int,
-                                                        vec![(Type::Int, "x".to_owned())]));
+                      int_f(vec![(Type::Int, "x".to_string())], vec![]));
     }
 
     #[test]
-    fn fundecl_2args_nobody(){
+    fn fundecl_2args(){
         test_str_decl("int f(int x, char y){}",
-                      Declaration::Func("f".to_owned(), Type::Int,
-                                                        vec![(Type::Int, "x".to_owned()),
-                                                             (Type::Char, "y".to_owned())]));
+                      int_f(vec![(Type::Int, "x".to_string()),
+                                 (Type::Char, "y".to_string())],
+                            vec![]));
+    }
+
+    #[test]
+    fn fundecl_4args(){
+        test_str_decl("int f(int x, char y, char z, char w){}",
+                      int_f(vec![(Type::Int, "x".to_string()),
+                                 (Type::Char, "y".to_string()),
+                                 (Type::Char, "z".to_string()),
+                                 (Type::Char, "w".to_string())],
+                            vec![]));
+    }
+
+    #[test]
+    fn fundecl_body(){
+        test_str_decl("int f(){int x;}",
+                      int_f(vec![],
+                            vec![Statement::LocalDecl("x".to_string(), Type::Int)]));
     }
 }

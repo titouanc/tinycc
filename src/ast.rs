@@ -7,12 +7,11 @@ pub enum Declaration {
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Statement {
-    LocalDecl(String, Type),
-    Rvalue(Box<Expr>),
-    Condition(Box<Expr>, Box<Statement>, Box<Option<Statement>>),
-    Loop(Box<Expr>, Box<Statement>),
-    Assign(Box<LValue>, Box<Expr>)
+pub enum Op {
+    Add,
+    Sub,
+    Mul,
+    Div
 }
 
 #[derive(Debug, PartialEq)]
@@ -21,15 +20,27 @@ pub enum LValue {
     ArrayItem(Box<LValue>, Box<Expr>),
 }
 
+
+#[derive(Debug, PartialEq)]
+pub enum Statement {
+    LocalDecl(String, Type),
+    RValue(Box<Expr>),
+    Condition(Box<Expr>, Box<Statement>, Box<Option<Statement>>),
+    Loop(Box<Expr>, Box<Statement>),
+    Assign(Box<LValue>, Box<Expr>),
+    Return(Box<Expr>),
+}
+
 #[derive(Debug, PartialEq)]
 pub enum Expr {
-    Lit(i64),
-    Sum(Box<Expr>, Box<Expr>),
+    Lit(i32),
+    LValue(Box<LValue>),
+    InfixOp(Op, Box<Expr>, Box<Expr>),
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Type {
     Int,
     Char,
-    ArrayOf(Box<Type>)
+    ArrayOf(Box<Type>, usize)
 }

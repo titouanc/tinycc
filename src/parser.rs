@@ -53,8 +53,7 @@ parser! {
 
     statements: Vec<Statement> {
         => vec![],
-        statement[s] => vec![s],
-        statements[mut prev] Semicol statement[s] => {
+        statements[mut prev] statement[s] => {
             prev.push(s);
             prev
         }
@@ -62,18 +61,10 @@ parser! {
 
     statement: Statement {
         typ[t] Name(name) Semicol => Statement::LocalDecl(name, t),
-        If LParen expr[cond] RParen statement[cons] => {
-            Statement::Condition(Box::new(cond), Box::new(cons), Box::new(None))
-        },
-        // If LParen expr[cond] RParen statement[cons] Else statement[alt] => {
-        //     Statement::Condition(Box::new(cond), Box::new(cons), Box::new(Some(alt)))
-        // },
-        While LParen expr[cond] RParen statement[body] => {
-            Statement::Loop(Box::new(cond), Box::new(body))
-        }
-        lvalue[lhs] Assign expr[rhs] => {
-            Statement::Assign(Box::new(lhs), Box::new(rhs))
-        }
+        expr[e] Semicol => Statement::RValue(Box::new(e)),
+        lvalue[l] Assign expr[r] Semicol => Statement::Assign(Box::new(l), Box::new(r)),
+        Return expr[r] Semicol => Statement::Return(Box::new(r)),
+        // #[no_reduce(ELSE)]
     }
 
     lvalue: LValue {
@@ -83,13 +74,34 @@ parser! {
         }
     }
 
+    term: Expr {
+        fact[x] => x,
+        term[l] Plus fact[r] => Expr::InfixOp(Op::Add, Box::new(l), Box::new(r)),
+        term[l] Minus fact[r] => Expr::InfixOp(Op::Sub, Box::new(l), Box::new(r)),
+    }
+
+    fact: Expr {
+        atom[x] => x,
+        fact[l] Times atom[r] => Expr::InfixOp(Op::Mul, Box::new(l), Box::new(r)),
+        fact[l] Divide atom[r] => Expr::InfixOp(Op::Div, Box::new(l), Box::new(r)),
+    }
+
+    atom: Expr {
+        Integer(i) => Expr::Lit(i),
+        lvalue[l] => Expr::LValue(Box::new(l)),
+    }
+
     expr: Expr {
-        => Expr::Lit(0)
+        LParen expr[e] RParen => e,
+        term[t] => t
     }
 
     typ: Type {
         Int => Type::Int,
         Char => Type::Char,
+        typ[t] LBrack Integer(size) RBrack => {
+            Type::ArrayOf(Box::new(t), size as usize)
+        },
     }
 }
 
@@ -98,7 +110,7 @@ pub fn parse_string(input: &str, print_err: bool) -> Program {
         Ok(res) => return res,
         Err((Some((_, loc)), err)) => {
             if print_err {
-                println!("{} \x1b[31m>>\x1b[0m {}\x1b[31;1m{}\x1b[0m{}",
+                println!("\x1b[31;1m!\x1b[0m {}\n\x1b[34m>>\x1b[0m {}\x1b[31;1m{}\x1b[0m{}",
                          err,
                          input[..loc.lo].to_string(),
                          input[loc.lo..loc.hi].to_string(),
@@ -139,6 +151,14 @@ mod tests {
     }
 
     #[test]
+    fn var_decl_array(){
+        test_str_decl("int[10] i;",
+                      var("i", Type::ArrayOf(Box::new(Type::Int), 10)));
+        test_str_decl("int[10][10] i;",
+                      var("i", Type::ArrayOf(Box::new(Type::ArrayOf(Box::new(Type::Int), 10)), 10)));
+    }
+
+    #[test]
     fn fundecl_noargs(){
         test_str_decl("int f(){}", int_f(vec![], vec![]));
     }
@@ -168,9 +188,46 @@ mod tests {
     }
 
     #[test]
-    fn fundecl_body(){
+    fn fundecl_return_lit(){
+        test_str_decl("int f(){return 3;}",
+                      int_f(vec![],
+                            vec![Statement::Return(Box::new(Expr::Lit(3)))]))
+    }
+
+    #[test]
+    fn fundecl_declare_local(){
         test_str_decl("int f(){int x;}",
                       int_f(vec![],
                             vec![Statement::LocalDecl("x".to_string(), Type::Int)]));
+    }
+
+    #[test]
+    fn fundecl_return_local_constant(){
+        parse_string("int f(){int x; x = 3; return x;}", true);
+    }
+
+    #[test]
+    fn fundecl_return_local_constant_paren(){
+        parse_string("int f(){int x; x = (3); return (x);}", true);
+    }
+
+    #[test]
+    fn fundecl_return_sum_args(){
+        parse_string("int f(int x, int y){return x + y;}", true);
+    }
+
+    #[test]
+    fn fundecl_return_sum_constants(){
+        parse_string("int f(){return 3 + 2;}", true);
+    }
+
+    #[test]
+    fn fundecl_assign_sum_to_local(){
+        parse_string("int f(int x, int y){int z; z = x + y;}", true);
+    }
+
+    #[test]
+    fn fundecl_assign_sum_to_array(){
+        parse_string("int f(int x, int y){int[10] z; z[0] = x + y;}", true);
     }
 }

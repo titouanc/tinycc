@@ -7,5 +7,5 @@ pub mod ast;
 pub mod parser;
 
 fn main() {
-    parser::parse_string(" 3 + 9 - 4", true);
+    parser::parse_string("char lol; int f(int x, int y){return x + y;}", true);
 }

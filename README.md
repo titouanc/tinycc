@@ -1,7 +1,7 @@
 # tinycc
 
-A tiny compiler written in Rust for the Compiler course @ VUB 2017.
+A [tiny](SPEC.md) compiler written in Rust for the Compiler course @ VUB 2017.
 
-![build-status](https://travis-ci.org/titouanc/tinycc.svg?branch=master)
+[![Build Status](https://travis-ci.org/titouanc/tinycc.svg?branch=master)](https://travis-ci.org/titouanc/tinycc)
 
 *Requires Rust Nightly*

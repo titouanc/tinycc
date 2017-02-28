@@ -43,7 +43,7 @@ It suffices to write a program t2s that
 * **READ** `read`
 * **GREATER** 
 * **LESS** `<`
-* **NOT** 
+* **NOT** `!`
 * **LENGTH** `length`
 * **WHILE** `while`
 
@@ -55,6 +55,7 @@ It suffices to write a program t2s that
 * `[string]*` means zero or more occurrences of `string`, where ``string` is a sequence of symbols.
 * Otherwise, the rules are as in yacc/bison specifications.
 
+```
     program         : [declaration]+
 
     declaration     : fun_declaration
@@ -116,6 +117,7 @@ It suffices to write a program t2s that
                     |                           // empty
 
     var             : NAME
+```
 
 # Semantics
 

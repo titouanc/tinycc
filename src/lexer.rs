@@ -6,14 +6,21 @@ lexer! {
 
     r#"[ \n\t]"# => (Whitespace, text),
     r#"\+"# => (Plus, text),
-    r#"-"# => (Minus, text),
     r#"\*"# => (Times, text),
-    r#"/"# => (Divide, text),
-    r#","# => (Comma, text),
-    r#";"# => (Semicol, text),
+    "-" => (Minus, text),
+    "/" => (Divide, text),
+    "," => (Comma, text),
+    ";" => (Semicol, text),
 
+    "while" => (While, text),
+    "if" => (If, text),
+    "else" => (Else, text),
+
+    "int" => (Int, text),
+    "char" => (Char, text),
+
+    r#"'.'"# => (Qchar(text.as_bytes()[1] as char), text),
     r#"[a-zA-Z_][a-zA-Z0-9_]*"# => (Name(text.to_owned()), text),    
-
     r#"[0-9]+"# => {
         (if let Ok(i) = text.parse(){
             Integer(i)
@@ -85,7 +92,6 @@ mod tests {
     #[test]
     fn parse_int() {
         test_str("42", Integer(42));
-        test_str("-42", Integer(-42));
     }
 
     #[test]
@@ -99,6 +105,14 @@ mod tests {
     #[test]
     fn parse_qchar() {
         test_str("'a'", Qchar('a'));    
+    }
+
+    #[test]
+    fn parse_operators() {
+        test_str("+", Plus);
+        test_str("-", Minus);
+        test_str("*", Times);
+        test_str("/", Divide);
     }
 
     #[test]

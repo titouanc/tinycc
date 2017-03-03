@@ -279,4 +279,9 @@ mod tests {
     fn fundecl_while(){
         parse_string("int f(){int x; x=0; while (x < 10){x = x+1;}}", true);
     }
+
+    #[test]
+    fn fundecl_while_nobraces(){
+        parse_string("int f(){int x; x=0; while (x < 10) x = x+1;}", true);
+    }
 }

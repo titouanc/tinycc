@@ -33,6 +33,7 @@ lexer! {
 
     "int" => (Int, text),
     "char" => (Char, text),
+    "length" => (Length, text),
 
     r#"'.'"# => (Qchar(text.as_bytes()[1] as char), text),
     r#"[a-zA-Z_][a-zA-Z0-9_]*"# => (Name(text.to_owned()), text),    

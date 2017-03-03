@@ -39,6 +39,8 @@ pub enum Expr {
     Lit(i32),
     LValue(Box<LValue>),
     InfixOp(Op, Box<Expr>, Box<Expr>),
+    Funcall(String, Vec<Expr>),
+    ArrayLen(Box<LValue>),
 }
 
 #[derive(Debug, PartialEq)]

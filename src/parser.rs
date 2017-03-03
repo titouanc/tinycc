@@ -106,10 +106,25 @@ parser! {
         Qchar(c) => Expr::Lit(c as i32),
         lvalue[l] => Expr::LValue(Box::new(l)),
         LParen expr[e] RParen => e,
+        Length lvalue[var] => Expr::ArrayLen(Box::new(var)),
+    }
+
+    funcall: Expr {
+        Name(name) LParen funcall_args[a] RParen => Expr::Funcall(name, a),
+    }
+
+    funcall_args: Vec<Expr> {
+        => vec![],
+        expr[e] => vec![e],
+        funcall_args[mut prev] Comma expr[e] => {
+            prev.push(e);
+            prev
+        }
     }
 
     expr: Expr {
-        cmp[t] => t
+        cmp[t] => t,
+        funcall[f] => f,
     }
 
     typ: Type {

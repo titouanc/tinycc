@@ -14,14 +14,15 @@ parser! {
 
     program: Program {
         => vec![],
-        program[mut prog] vardecl[d] Semicol => {
+        program[mut prog] declaration[d] => {
             prog.push(d);
             prog
         }
-        program[mut prog] fundecl[d] => {
-            prog.push(d);
-            prog
-        }
+    }
+
+    declaration: Declaration {
+        vardecl[d] Semicol => d,
+        fundecl[d] => d,
     }
 
     vardecl: Declaration {
@@ -99,11 +100,12 @@ parser! {
 
     atom: Expr {
         Integer(i) => Expr::Lit(i),
+        Qchar(c) => Expr::Lit(c as i32),
         lvalue[l] => Expr::LValue(Box::new(l)),
+        LParen expr[e] RParen => e,
     }
 
     expr: Expr {
-        LParen expr[e] RParen => e,
         cmp[t] => t
     }
 
@@ -240,5 +242,25 @@ mod tests {
     #[test]
     fn fundecl_assign_sum_to_array(){
         parse_string("int f(int x, int y){int[10] z; z[0] = x + y;}", true);
+    }
+
+    #[test]
+    fn fundecl_3sum(){
+        parse_string("int f(){return 3 + 4 + 5;}", true);
+    }
+
+    #[test]
+    fn fundecl_natural_binop_priority(){
+        parse_string("int f(){return 3 + 4 * 5;}", true);
+    }
+
+    #[test]
+    fn fundecl_enforce_binop_priority(){
+        parse_string("int f(){return 3 + (4 * 5);}", true);
+    }
+
+    #[test]
+    fn fundecl_inverse_binop_priority(){
+        parse_string("int f(){return (3+4) * 5;}", true);
     }
 }

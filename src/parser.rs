@@ -49,6 +49,7 @@ parser! {
     }
 
     block: Vec<Statement> {
+        statement[s] => vec![s],
         LBrace statements[s] RBrace => s,
     }
 
@@ -66,7 +67,9 @@ parser! {
         lvalue[l] Assign expr[r] Semicol => Statement::Assign(Box::new(l), Box::new(r)),
         Return expr[r] Semicol => Statement::Return(Box::new(r)),
         While LParen expr[cond] RParen block[body] => Statement::Loop(Box::new(cond), body),
-        // #[no_reduce(ELSE)]
+        #[no_reduce(Else)]
+        If LParen expr[cond] RParen block[cons] => Statement::Condition(Box::new(cond), cons, vec![]),
+        If LParen expr[cond] RParen block[cons] Else block[alt] => Statement::Condition(Box::new(cond), cons, alt),
     }
 
     lvalue: LValue {
@@ -257,10 +260,23 @@ mod tests {
     #[test]
     fn fundecl_enforce_binop_priority(){
         parse_string("int f(){return 3 + (4 * 5);}", true);
+        parse_string("int f(){return (3+4) * 5;}", true);
     }
 
     #[test]
-    fn fundecl_inverse_binop_priority(){
-        parse_string("int f(){return (3+4) * 5;}", true);
+    fn fundecl_if(){
+        parse_string("int f(){if (1){return 42;}}", true);
+        parse_string("int f(){if (1){return 42;} else {return 25;}}", true);
+    }
+
+    #[test]
+    fn fundecl_if_nobraces(){
+        parse_string("int f(){if (1) return 42;}", true);
+        parse_string("int f(){if (1) return 42; else return 25;}", true);
+    }
+
+    #[test]
+    fn fundecl_while(){
+        parse_string("int f(){int x; x=0; while (x < 10){x = x+1;}}", true);
     }
 }

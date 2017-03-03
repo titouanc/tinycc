@@ -12,6 +12,11 @@ lexer! {
     "," => (Comma, text),
     ";" => (Semicol, text),
     "==" => (Equal, text),
+    "!=" => (NotEqual, text),
+    "<" => (Lt, text),
+    "<=" => (Lte, text),
+    ">" => (Gt, text),
+    ">=" => (Gte, text),
     "=" => (Assign, text),
 
     r#"\("# => (LParen, text),

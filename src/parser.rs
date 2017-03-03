@@ -74,6 +74,16 @@ parser! {
         }
     }
 
+    cmp: Expr {
+        term[x] => x,
+        term[l] Equal term[r] => Expr::InfixOp(Op::Eql, Box::new(l), Box::new(r)),
+        term[l] NotEqual term[r] => Expr::InfixOp(Op::NotEql, Box::new(l), Box::new(r)),
+        term[l] Lt term[r] => Expr::InfixOp(Op::Lt, Box::new(l), Box::new(r)),
+        term[l] Lte term[r] => Expr::InfixOp(Op::Lte, Box::new(l), Box::new(r)),
+        term[l] Gt term[r] => Expr::InfixOp(Op::Gt, Box::new(l), Box::new(r)),
+        term[l] Gte term[r] => Expr::InfixOp(Op::Gte, Box::new(l), Box::new(r)),
+    }
+
     term: Expr {
         fact[x] => x,
         term[l] Plus fact[r] => Expr::InfixOp(Op::Add, Box::new(l), Box::new(r)),
@@ -93,7 +103,7 @@ parser! {
 
     expr: Expr {
         LParen expr[e] RParen => e,
-        term[t] => t
+        cmp[t] => t
     }
 
     typ: Type {

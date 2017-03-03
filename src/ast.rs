@@ -29,7 +29,7 @@ pub enum Statement {
     LocalDecl(String, Type),
     RValue(Box<Expr>),
     Condition(Box<Expr>, Box<Statement>, Box<Option<Statement>>),
-    Loop(Box<Expr>, Box<Statement>),
+    Loop(Box<Expr>, Vec<Statement>),
     Assign(Box<LValue>, Box<Expr>),
     Return(Box<Expr>),
 }

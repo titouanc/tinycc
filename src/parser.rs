@@ -64,6 +64,7 @@ parser! {
         expr[e] Semicol => Statement::RValue(Box::new(e)),
         lvalue[l] Assign expr[r] Semicol => Statement::Assign(Box::new(l), Box::new(r)),
         Return expr[r] Semicol => Statement::Return(Box::new(r)),
+        While LParen expr[cond] RParen block[body] => Statement::Loop(Box::new(cond), body),
         // #[no_reduce(ELSE)]
     }
 

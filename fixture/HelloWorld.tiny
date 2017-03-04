@@ -1,0 +1,22 @@
+int tiny(){
+    char[20] text;
+    text[0]  = 'H';
+    text[1]  = 'e';
+    text[2]  = 'l';
+    text[3]  = 'l';
+    text[4]  = 'o';
+    text[5]  = ' ';
+    text[6]  = 'W';
+    text[7]  = 'o';
+    text[8]  = 'r';
+    text[9]  = 'l';
+    text[10] = 'd';
+    text[11] = '!';
+
+    int i;
+    i = 0;
+    while (i < length text){
+        print(text[i]);
+        i = i + 1;
+    }
+}

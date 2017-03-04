@@ -5,7 +5,6 @@ pub mod tokens;
 pub mod lexer;
 pub mod ast;
 pub mod parser;
-pub mod staticanalysis;
 
 use std::io::{self, Read};
 

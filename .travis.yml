@@ -1,4 +1,4 @@
 language: rust
 rust:
   - nightly
-script: ./run_tests
+script: ./run_tests.sh

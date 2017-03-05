@@ -2,16 +2,17 @@ pub type Program = Vec<Declaration>;
 
 #[derive(Debug, PartialEq)]
 pub enum Declaration {
-    Func(String, Type, Vec<(Type, String)>, Vec<Statement>),
+    Func(String, Type, Vec<(String, Type)>, Vec<Statement>),
     Var(String, Type),
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Op {
+pub enum Operator {
     Add,
     Sub,
     Mul,
     Div,
+    Mod,
     Eql, NotEql,
     Lt, Lte,
     Gt, Gte,
@@ -20,27 +21,28 @@ pub enum Op {
 #[derive(Debug, PartialEq)]
 pub enum LValue {
     Identifier(String),
-    ArrayItem(Box<LValue>, Box<Expr>),
+    ArrayItem(Box<LValue>, Expression),
 }
 
 
 #[derive(Debug, PartialEq)]
 pub enum Statement {
     LocalDecl(String, Type),
-    RValue(Box<Expr>),
-    Condition(Box<Expr>, Vec<Statement>, Vec<Statement>),
-    Loop(Box<Expr>, Vec<Statement>),
-    Assign(Box<LValue>, Box<Expr>),
-    Return(Box<Expr>),
+    RValue(Expression),
+    Condition(Expression, Vec<Statement>, Vec<Statement>),
+    Loop(Expression, Vec<Statement>),
+    Assign(LValue, Box<Expression>),
+    Return(Expression),
 }
 
 #[derive(Debug, PartialEq)]
-pub enum Expr {
+pub enum Expression {
     Lit(i32),
     LValue(Box<LValue>),
-    InfixOp(Op, Box<Expr>, Box<Expr>),
-    Funcall(String, Vec<Expr>),
+    InfixOp(Operator, Box<Expression>, Box<Expression>),
+    Funcall(String, Vec<Expression>),
     ArrayLen(Box<LValue>),
+    Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
 }
 
 #[derive(Debug, PartialEq)]

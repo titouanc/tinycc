@@ -1,0 +1,11 @@
+int _fac(int acc, int n){
+    return (n <= 1) ? acc : _fac(acc*n, n-1);
+}
+
+int fac(int n){
+    return _fac(1, n);
+}
+
+int tiny(){
+    print(fac(5));
+}

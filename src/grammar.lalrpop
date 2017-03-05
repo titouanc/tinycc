@@ -1,0 +1,140 @@
+use std::str::FromStr;
+use ::ast;
+
+grammar;
+
+
+// A name
+Identifier: String = {<s:r"[a-zA-Z_][a-zA-Z0-9_]*"> => s.to_string()};
+
+// A literal number
+Number: i32 = {<n:r"[0-9]+"> => i32::from_str(n).unwrap()};
+
+// A (dimensional) type name
+Type: ast::Type = {
+    "int" => ast::Type::Int,
+    "char" => ast::Type::Char,
+    <t:Type> "[" <size:Number> "]" =>
+        ast::Type::ArrayOf(Box::new(t), size as usize),
+};
+
+// Macro for a Comma Separated List
+Csl<T>: Vec<T> = {
+    <v:(<T> ",")*> <e:T?> => match e {
+        None => v,
+        Some(e) => {
+            let mut v = v;
+            v.push(e);
+            v
+        }
+    }
+};
+
+
+// Top-level: A program is a sequence of declarations
+pub Program = <Declaration+>;
+pub Declaration = {FunDecl, <v:VarDecl> ";" => ast::Declaration::Var(v.0, v.1)};
+
+
+// Variable declaration
+VarDecl: (String, ast::Type) = {
+    <typ:Type> <name:Identifier> => (name, typ),
+};
+
+// Function declaration
+FunDecl: ast::Declaration = {
+    <typ:Type> <name:Identifier> "(" <args:FormalParams> ")" <body:Block> =>
+        ast::Declaration::Func(name, typ, args, body),
+};
+FormalParams = Csl<VarDecl>;
+
+
+// Sequence of statements
+Block: Vec<ast::Statement> = {
+    <s:Statement> => vec![s],
+    "{" <Statement*> "}" => <>,
+};
+
+
+// Statement
+pub Statement: ast::Statement = {
+    <v:VarDecl> ";" => ast::Statement::LocalDecl(v.0, v.1),
+    <e:Expr> ";" => ast::Statement::RValue(e),
+    "return" <e:Expr> ";" => ast::Statement::Return(e),
+    // "if" "(" <cond:Expr> ")" <cons:Block> =>
+    //     ast::Statement::Condition(cond, cons, vec![]),
+    "if" "(" <cond:Expr> ")" <cons:Block> "else" <alt:Block> =>
+        ast::Statement::Condition(cond, cons, alt),
+    "while" "(" <cond:Expr> ")" <body:Block> =>
+        ast::Statement::Loop(cond, body)
+};
+
+
+// Expressions
+pub Expr: ast::Expression = Cmp;
+
+// Comparative expr
+Cmp: ast::Expression = {
+    <l:Expr> <op:CmpOp> <r:Factor> =>
+        ast::Expression::InfixOp(op, Box::new(l), Box::new(r)),
+    Term,
+};
+
+// Additive expr
+Term: ast::Expression = {
+    <l:Expr> <op:TermOp> <r:Factor> =>
+        ast::Expression::InfixOp(op, Box::new(l), Box::new(r)),
+    Factor,
+};
+
+// Multiplicative expr
+Factor: ast::Expression = {
+    <l:Factor> <op:FactorOp> <r:Ternary> =>
+        ast::Expression::InfixOp(op, Box::new(l), Box::new(r)),
+    Ternary,
+};
+
+// a ? b : c
+Ternary: ast::Expression = {
+    <cond:Atom> "?" <cons:Atom> ":" <alt:Atom> =>
+        ast::Expression::Ternary(Box::new(cond), Box::new(cons), Box::new(alt)),
+    Atom,
+};
+
+// literal, variable, parentheses
+Atom: ast::Expression = {
+    <n:Number> => ast::Expression::Lit(n),
+    <LValue> => ast::Expression::LValue(Box::new(<>)),
+    <name:Identifier> "(" <args:Csl<Expr>> ")" =>
+        ast::Expression::Funcall(name, args),
+    "(" <Expr> ")" => <>,
+};
+
+// Something we can use as assignable value
+LValue: ast::LValue = {
+    <l:LValue> "[" <i:Expr> "]" => ast::LValue::ArrayItem(Box::new(l), i),
+    <Identifier> => ast::LValue::Identifier(<>),
+};
+
+// Comparison operators
+CmpOp: ast::Operator = {
+    "==" => ast::Operator::Eql,
+    "!=" => ast::Operator::NotEql,
+    "<"  => ast::Operator::Lt,
+    "<=" => ast::Operator::Lte,
+    ">"  => ast::Operator::Gt,
+    ">=" => ast::Operator::Gte,
+};
+
+// Additive operators
+TermOp: ast::Operator = {
+    "+" => ast::Operator::Add,
+    "-" => ast::Operator::Sub,
+};
+
+// Multiplcative operators
+FactorOp: ast::Operator = {
+    "*" => ast::Operator::Mul,
+    "/" => ast::Operator::Div,
+    "%" => ast::Operator::Mod,
+};

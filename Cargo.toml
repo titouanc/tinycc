@@ -1,12 +1,14 @@
 [package]
 name = "tinycc"
-version = "0.1.0"
+version = "1.0.0"
 authors = ["iTitou"]
 description = "Compiler for the Tiny language"
+build = "build.rs"
 
-[[bin]]
-path = "src/main.rs"
-name = "tinycc"
+
+[build-dependencies]
+lalrpop = "0.12.5"
 
 [dependencies]
-plex = "0.0.3"
+lalrpop-util = "0.12.5"
+regex = "0.2"

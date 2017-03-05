@@ -51,28 +51,30 @@ FunDecl: ast::Declaration = {
 };
 FormalParams = Csl<VarDecl>;
 
+Block: Vec<ast::Statement> = RestrictedBlock<"Y">;
 
 // Sequence of statements
-Block: Vec<ast::Statement> = {
-    <s:Statement> => vec![s],
+RestrictedBlock<I>: Vec<ast::Statement> = {
+    <s:RestrictedStatement<"">> => vec![s],
     "{" <Statement*> "}" => <>,
 };
 
 
 // Statement
-pub Statement: ast::Statement = {
+pub Statement = {RestrictedStatement<"Y">};
+
+RestrictedStatement<I>: ast::Statement = {
     <v:VarDecl> ";" => ast::Statement::LocalDecl(v.0, v.1),
     <e:Expr> ";" => ast::Statement::RValue(e),
     <l:LValue> "=" <r:Expr> ";" =>  ast::Statement::Assign(l, r),
     "return" <e:Expr> ";" => ast::Statement::Return(e),
-    // "if" "(" <cond:Expr> ")" <cons:Block> =>
-    //     ast::Statement::Condition(cond, cons, vec![]),
-    "if" "(" <cond:Expr> ")" <cons:Block> "else" <alt:Block> =>
-        ast::Statement::Condition(cond, cons, alt),
     "while" "(" <cond:Expr> ")" <body:Block> =>
-        ast::Statement::Loop(cond, body)
+        ast::Statement::Loop(cond, body),
+    "if" "(" <cond:Expr> ")" <cons:RestrictedBlock<"Y">> if I != "" =>
+        ast::Statement::Condition(cond, cons, vec![]),
+    "if" "(" <cond:Expr> ")" <cons:RestrictedBlock<"">> "else" <alt:RestrictedBlock<I>> =>
+        ast::Statement::Condition(cond, cons, alt),
 };
-
 
 // Expressions
 pub Expr: ast::Expression = Cmp;

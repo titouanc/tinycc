@@ -6,4 +6,4 @@ and not required by the bare [specification](SPEC.md)
 ## Syntax
 
 * Ternary expressions: `condition ? valIfTrue : valIfFalse`
-
+* Operator for length of array is `lengthOf`

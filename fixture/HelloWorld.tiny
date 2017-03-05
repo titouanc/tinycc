@@ -15,7 +15,7 @@ int tiny(){
 
     int i;
     i = 0;
-    while (i < length text){
+    while (i < lengthOf text){
         print(text[i]);
         i = i + 1;
     }

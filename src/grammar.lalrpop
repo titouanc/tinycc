@@ -119,8 +119,8 @@ Atom: ast::Expression = {
 };
 
 Primitive: ast::Expression = {
-    "length" "(" <val:LValue> ")" => ast::Expression::ArrayLen(Box::new(val)),
-    "length" <val:LValue> => ast::Expression::ArrayLen(Box::new(val)),
+    "lengthOf" "(" <val:LValue> ")" => ast::Expression::ArrayLen(Box::new(val)),
+    "lengthOf" <val:LValue> => ast::Expression::ArrayLen(Box::new(val)),
 };
 
 // Something we can use as assignable value

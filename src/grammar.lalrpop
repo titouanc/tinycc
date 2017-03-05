@@ -79,14 +79,14 @@ pub Expr: ast::Expression = Cmp;
 
 // Comparative expr
 Cmp: ast::Expression = {
-    <l:Expr> <op:CmpOp> <r:Factor> =>
+    <l:Term> <op:CmpOp> <r:Term> =>
         ast::Expression::InfixOp(op, Box::new(l), Box::new(r)),
     Term,
 };
 
 // Additive expr
 Term: ast::Expression = {
-    <l:Expr> <op:TermOp> <r:Factor> =>
+    <l:Term> <op:TermOp> <r:Factor> =>
         ast::Expression::InfixOp(op, Box::new(l), Box::new(r)),
     Factor,
 };

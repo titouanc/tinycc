@@ -57,9 +57,9 @@ pub enum Type {
 
 ////////////// Formatting //////////////
 fn print_block(body: &Vec<Statement>, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "{{");
+    write!(f, "{{").unwrap();
     for st in body {
-        write!(f, "{}", st);
+        write!(f, "{}", st).unwrap();
     }
     write!(f, "}}")
 }
@@ -69,12 +69,12 @@ impl fmt::Display for Declaration {
         match *self {
             Declaration::Var(ref name, ref typ) => write!(f, "{} {}", typ, name),
             Declaration::Func(ref name, ref typ, ref args, ref body) => {
-                write!(f, "{} {}(", typ, name);
+                write!(f, "{} {}(", typ, name).unwrap();
                 for (i, &(ref n, ref t)) in args.iter().enumerate() {
-                    if i > 0 {write!(f, ", ");}
-                    write!(f, "{} {}", t, n);
+                    if i > 0 {write!(f, ", ").unwrap();}
+                    write!(f, "{} {}", t, n).unwrap();
                 }
-                write!(f, ")");
+                write!(f, ")").unwrap();
                 print_block(body, f)
             },
         }
@@ -114,13 +114,13 @@ impl fmt::Display for Statement {
             Statement::LocalDecl(ref name, ref typ) => write!(f, "{} {};", typ, name),
             Statement::RValue(ref expr) => write!(f, "{};", expr),
             Statement::Condition(ref cond, ref cons, ref alt) => {
-                write!(f, "if ({})", cond);
-                print_block(cons, f);
-                write!(f, " else ");
+                write!(f, "if ({})", cond).unwrap();
+                print_block(cons, f).unwrap();
+                write!(f, " else ").unwrap();
                 print_block(alt, f)
             },
             Statement::Loop(ref cond, ref body) => {
-                write!(f, "while ({})", cond);
+                write!(f, "while ({})", cond).unwrap();
                 print_block(body, f)
             },
             Statement::Assign(ref left, ref val) => write!(f, "{} = {};", left, val),
@@ -135,10 +135,10 @@ impl fmt::Display for Expression {
             Expression::Lit(x) => write!(f, "{}", x),
             Expression::LValue(ref left) => write!(f, "{}", left),
             Expression::Funcall(ref name, ref args) => {
-                write!(f, "{}(", name);
+                write!(f, "{}(", name).unwrap();
                 for (i, &ref arg) in args.iter().enumerate() {
-                    if i > 0 {write!(f, ", ");}
-                    write!(f, "{}", arg);
+                    if i > 0 {write!(f, ", ").unwrap();}
+                    write!(f, "{}", arg).unwrap();
                 }
                 write!(f, ")")
             },

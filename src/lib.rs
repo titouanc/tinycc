@@ -30,7 +30,6 @@ pub fn compile(src: &str) {
 #[cfg(test)]
 mod test_parser {
     use super::*;
-    use ast::*;
     use ast::Expression::*;
     use ast::Operator as Op;
 

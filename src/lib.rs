@@ -4,25 +4,21 @@ pub mod grammar; // synthesized by LALRPOP
 extern crate lalrpop_util;
 use lalrpop_util::ParseError::*;
 
-
-
 pub fn compile(src: &str) {
     match grammar::parse_Program(src) {
         Ok(prog) => println!("{:?}", prog),
-        Err(err) => {
-            let nice_err = match err {
-                InvalidToken {location: loc} =>
-                    format!("INVALID TOKEN `{}...`", src[loc..loc+25].to_string()),
-                UnrecognizedToken {token: Some((lo, (_, t), hi)), expected: exp} =>
-                    format!("Unexpected token {:?} in\n{}\x1b[41m{}\x1b[0m{}\nExpecting one of: {}",
-                            t,
-                            src[..lo].to_string(),
-                            src[lo..hi].to_string(),
-                            src[hi..].to_string(),
-                            exp.join(", ")),
-                _ => format!("{:?}", err),
-            };
-            println!("\x1b[1;31mError:\x1b[0m {}", nice_err);
+        Err(err) => match err {
+            InvalidToken {location: loc} =>
+                println!("\x1b[34mInvalid token \x1b[31m {:?}\x1b[0m", loc),
+            UnrecognizedToken {token: Some((lo, (_, t), hi)), expected: exp} => {
+                println!("\x1b[34mUnexpected token \x1b[31m{:?}\x1b[0m in", t);
+                println!("{}\x1b[41m{}\x1b[0m{}",
+                         src[..lo].to_string(),
+                         src[lo..hi].to_string(),
+                         src[hi..].to_string());
+                println!("Expecting one of: {}", exp.join(", "));
+            },
+            _ => println!("{:?}", err),
         },
     };
 }

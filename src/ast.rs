@@ -115,9 +115,14 @@ impl fmt::Display for Statement {
             Statement::RValue(ref expr) => write!(f, "{};", expr),
             Statement::Condition(ref cond, ref cons, ref alt) => {
                 write!(f, "if ({})", cond).unwrap();
-                print_block(cons, f).unwrap();
-                write!(f, " else ").unwrap();
-                print_block(alt, f)
+                let res = print_block(cons, f);
+                if alt.len() > 0 {
+                    res.unwrap();
+                    write!(f, " else ").unwrap();
+                    print_block(alt, f)
+                } else {
+                    res
+                }
             },
             Statement::Loop(ref cond, ref body) => {
                 write!(f, "while ({})", cond).unwrap();

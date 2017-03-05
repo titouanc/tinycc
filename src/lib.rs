@@ -120,4 +120,32 @@ mod test_parser {
         assert!(grammar::parse_Statement("while (x == 0){return 3;}").is_ok());
         assert!(grammar::parse_Statement("while (x == 0) return 3;").is_ok());
     }
+
+    fn test_with_repr(in_: &str, out: &str) {
+        let prog = compile(in_);
+        let repr = format!("{}", prog[0]);
+        println!("\x1b[33mComparison:\x1b[0m");
+        println!("     Got: {}", repr);
+        println!("Expected: {}", out);
+        assert_eq!(repr, out);
+    }
+
+    #[test]
+    fn nested_if(){
+
+        test_with_repr("int f(){if (x) if (y) return 1; else return 2;}",
+                       "int f(){if (x){if (y){return 1;} else {return 2;}}}");
+    }
+
+    #[test]
+    fn nested_else(){
+        test_with_repr("int f(){if (x) return 1; else if (y) return 2; else return 3;}",
+                       "int f(){if (x){return 1;} else {if (y){return 2;} else {return 3;}}}");
+    }
+
+    #[test]
+    fn nested_if_else(){
+        test_with_repr("int f(){if (x) if (y) return 1; else return 2; else return 3;}",
+                       "int f(){if (x){if (y){return 1;} else {return 2;}} else {return 3;}}");
+    }
 }

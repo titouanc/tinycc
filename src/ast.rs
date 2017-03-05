@@ -1,25 +1,11 @@
 use std::fmt;
 
-fn print_block(body: &Vec<Statement>, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "{{");
-    for st in body {
-        write!(f, "{}", st);
-    }
-    write!(f, "}}")
-}
-
 pub type Program = Vec<Declaration>;
 
 #[derive(Debug, PartialEq)]
 pub enum Declaration {
     Func(String, Type, Vec<(String, Type)>, Vec<Statement>),
     Var(String, Type),
-}
-
-impl fmt::Display for Declaration {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{:?}", self)
-    }
 }
 
 #[derive(Debug, PartialEq)]
@@ -34,39 +20,11 @@ pub enum Operator {
     Gt, Gte,
 }
 
-impl fmt::Display for Operator {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match self {
-            Add => write!(f, "+"),
-            Sub => write!(f, "-"),
-            Mul => write!(f, "*"),
-            Div => write!(f, "+"),
-            Mod => write!(f, "%"),
-            Eql => write!(f, "=="),
-            NotEql => write!(f, "!="),
-            Lt => write!(f, "<"),
-            Lte => write!(f, "<="),
-            Gt => write!(f, ">"),
-            Gte => write!(f, ">="),
-        }
-    }
-}
-
 #[derive(Debug, PartialEq)]
 pub enum LValue {
     Identifier(String),
     ArrayItem(Box<LValue>, Expression),
 }
-
-impl fmt::Display for LValue {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        match *self {
-            LValue::Identifier(ref name) => write!(f, "{}", name),
-            LValue::ArrayItem(ref left, ref idx) => write!(f, "{}[{}]", *left, idx),
-        }
-    }
-}
-
 
 #[derive(Debug, PartialEq)]
 pub enum Statement {
@@ -76,6 +34,78 @@ pub enum Statement {
     Loop(Expression, Vec<Statement>),
     Assign(LValue, Expression),
     Return(Expression),
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Expression {
+    Lit(i32), // Litteral value
+    LValue(Box<LValue>), // variable (optional indexing)
+    Funcall(String, Vec<Expression>), // f(args)
+    ArrayLen(Box<LValue>), // length array
+
+    InfixOp(Operator, Box<Expression>, Box<Expression>), // left op right
+    Ternary(Box<Expression>, Box<Expression>, Box<Expression>), // a ? b : c
+}
+
+#[derive(Debug, PartialEq)]
+pub enum Type {
+    Int,
+    Char,
+    ArrayOf(Box<Type>, usize)
+}
+
+
+////////////// Formatting //////////////
+fn print_block(body: &Vec<Statement>, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "{{");
+    for st in body {
+        write!(f, "{}", st);
+    }
+    write!(f, "}}")
+}
+
+impl fmt::Display for Declaration {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            Declaration::Var(ref name, ref typ) => write!(f, "{} {}", typ, name),
+            Declaration::Func(ref name, ref typ, ref args, ref body) => {
+                write!(f, "{} {}(", typ, name);
+                for (i, &(ref n, ref t)) in args.iter().enumerate() {
+                    if i > 0 {write!(f, ", ");}
+                    write!(f, "{} {}", t, n);
+                }
+                write!(f, ")");
+                print_block(body, f)
+            },
+        }
+    }
+}
+
+impl fmt::Display for Operator {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            &Operator::Add => write!(f, "+"),
+            &Operator::Sub => write!(f, "-"),
+            &Operator::Mul => write!(f, "*"),
+            &Operator::Div => write!(f, "/"),
+            &Operator::Mod => write!(f, "%"),
+            &Operator::Eql => write!(f, "=="),
+            &Operator::NotEql => write!(f, "!="),
+            &Operator::Lt => write!(f, "<"),
+            &Operator::Lte => write!(f, "<="),
+            &Operator::Gt => write!(f, ">"),
+            &Operator::Gte => write!(f, ">="),
+        }
+    }
+}
+
+impl fmt::Display for LValue {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match *self {
+            LValue::Identifier(ref name) => write!(f, "{}", name),
+            LValue::ArrayItem(ref left, ref idx) => write!(f, "{}[{}]", *left, idx),
+        }
+    }
 }
 
 impl fmt::Display for Statement {
@@ -99,17 +129,6 @@ impl fmt::Display for Statement {
     }
 }
 
-#[derive(Debug, PartialEq)]
-pub enum Expression {
-    Lit(i32), // Litteral value
-    LValue(Box<LValue>), // variable (optional indexing)
-    Funcall(String, Vec<Expression>), // f(args)
-    ArrayLen(Box<LValue>), // length array
-
-    InfixOp(Operator, Box<Expression>, Box<Expression>), // left op right
-    Ternary(Box<Expression>, Box<Expression>, Box<Expression>), // a ? b : c
-}
-
 impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
@@ -117,8 +136,9 @@ impl fmt::Display for Expression {
             Expression::LValue(ref left) => write!(f, "{}", left),
             Expression::Funcall(ref name, ref args) => {
                 write!(f, "{}(", name);
-                for arg in args {
-                    write!(f, "{}, ", arg);
+                for (i, &ref arg) in args.iter().enumerate() {
+                    if i > 0 {write!(f, ", ");}
+                    write!(f, "{}", arg);
                 }
                 write!(f, ")")
             },
@@ -128,13 +148,6 @@ impl fmt::Display for Expression {
             Expression::Ternary(ref cond, ref cons, ref  alt) => write!(f, "({}) ? ({}) : ({})", cond, cons, alt),
         }
     }
-}
-
-#[derive(Debug, PartialEq)]
-pub enum Type {
-    Int,
-    Char,
-    ArrayOf(Box<Type>, usize)
 }
 
 impl fmt::Display for Type {

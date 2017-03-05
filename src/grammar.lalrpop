@@ -63,6 +63,7 @@ Block: Vec<ast::Statement> = {
 pub Statement: ast::Statement = {
     <v:VarDecl> ";" => ast::Statement::LocalDecl(v.0, v.1),
     <e:Expr> ";" => ast::Statement::RValue(e),
+    <l:LValue> "=" <r:Expr> ";" =>  ast::Statement::Assign(l, r),
     "return" <e:Expr> ";" => ast::Statement::Return(e),
     // "if" "(" <cond:Expr> ")" <cons:Block> =>
     //     ast::Statement::Condition(cond, cons, vec![]),

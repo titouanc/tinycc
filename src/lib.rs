@@ -4,7 +4,7 @@ pub mod grammar; // synthesized by LALRPOP
 extern crate lalrpop_util;
 use lalrpop_util::ParseError::*;
 
-pub fn compile(src: &str) -> ast::Program {
+pub fn parse(src: &str) -> ast::Program {
     match grammar::parse_Program(src) {
         Ok(prog) => return prog,
         Err(err) => {
@@ -29,8 +29,15 @@ pub fn compile(src: &str) -> ast::Program {
 #[cfg(test)]
 mod test_parser {
     use super::*;
-    use ast::Expression::*;
-    use ast::Operator as Op;
+    
+    fn test_with_repr(in_: &str, out: &str) {
+        let prog = parse(in_);
+        let repr = format!("{}", prog[0]);
+        println!("\x1b[33mComparison:\x1b[0m");
+        println!("     Got: {}", repr);
+        println!("Expected: {}", out);
+        assert_eq!(repr, out);
+    }
 
     #[test]
     fn var_decl() {
@@ -69,14 +76,8 @@ mod test_parser {
     #[test]
     fn op_precedence() {
         let expr = grammar::parse_Expr("3 + 4 * 5 % 3").unwrap();
-        let expected = InfixOp(Op::Add,
-                               Box::new(Lit(3)),
-                               Box::new(InfixOp(Op::Mod,
-                                                Box::new(InfixOp(Op::Mul,
-                                                                 Box::new(Lit(4)),
-                                                                 Box::new(Lit(5)))),
-                                                Box::new(Lit(3)))));
-        assert_eq!(expr, expected);
+        let repr = format!("{}", expr);
+        assert_eq!(repr, "(3 + ((4 * 5) % 3))");
     }
 
     #[test]
@@ -119,15 +120,6 @@ mod test_parser {
     fn while_statement(){
         assert!(grammar::parse_Statement("while (x == 0){return 3;}").is_ok());
         assert!(grammar::parse_Statement("while (x == 0) return 3;").is_ok());
-    }
-
-    fn test_with_repr(in_: &str, out: &str) {
-        let prog = compile(in_);
-        let repr = format!("{}", prog[0]);
-        println!("\x1b[33mComparison:\x1b[0m");
-        println!("     Got: {}", repr);
-        println!("Expected: {}", out);
-        assert_eq!(repr, out);
     }
 
     #[test]

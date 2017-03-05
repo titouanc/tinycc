@@ -12,7 +12,7 @@ pub fn compile(src: &str) {
         Err(err) => {
             let nice_err = match err {
                 InvalidToken {location: loc} =>
-                    format!("INVALID TOKEN `{:?}...`", src[loc..loc+25].to_string()),
+                    format!("INVALID TOKEN `{}...`", src[loc..loc+25].to_string()),
                 UnrecognizedToken {token: Some((lo, (_, t), hi)), expected: exp} =>
                     format!("Unexpected token {:?} in\n{}\x1b[41m{}\x1b[0m{}\nExpecting one of: {}",
                             t,

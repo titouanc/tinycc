@@ -10,6 +10,9 @@ Identifier: String = {<s:r"[a-zA-Z_][a-zA-Z0-9_]*"> => s.to_string()};
 // A literal number
 Number: i32 = {<n:r"[0-9]+"> => i32::from_str(n).unwrap()};
 
+// A litteral char
+Char: i32 = {<c:r"'.'"> => c.as_bytes()[1] as i32};
+
 // A (dimensional) type name
 Type: ast::Type = {
     "int" => ast::Type::Int,
@@ -104,10 +107,17 @@ Ternary: ast::Expression = {
 // literal, variable, parentheses
 Atom: ast::Expression = {
     <n:Number> => ast::Expression::Lit(n),
+    <c:Char> => ast::Expression::Lit(c),
     <LValue> => ast::Expression::LValue(Box::new(<>)),
     <name:Identifier> "(" <args:Csl<Expr>> ")" =>
         ast::Expression::Funcall(name, args),
+    <Primitive> => <>,
     "(" <Expr> ")" => <>,
+};
+
+Primitive: ast::Expression = {
+    "length" "(" <val:LValue> ")" => ast::Expression::ArrayLen(Box::new(val)),
+    "length" <val:LValue> => ast::Expression::ArrayLen(Box::new(val)),
 };
 
 // Something we can use as assignable value

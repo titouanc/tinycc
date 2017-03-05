@@ -31,18 +31,20 @@ pub enum Statement {
     RValue(Expression),
     Condition(Expression, Vec<Statement>, Vec<Statement>),
     Loop(Expression, Vec<Statement>),
-    Assign(LValue, Box<Expression>),
+    Assign(LValue, Expression),
     Return(Expression),
 }
 
 #[derive(Debug, PartialEq)]
 pub enum Expression {
-    Lit(i32),
-    LValue(Box<LValue>),
-    InfixOp(Operator, Box<Expression>, Box<Expression>),
-    Funcall(String, Vec<Expression>),
-    ArrayLen(Box<LValue>),
-    Ternary(Box<Expression>, Box<Expression>, Box<Expression>),
+    Lit(i32), // Litteral value
+    LValue(Box<LValue>), // variable (optional indexing)
+    Funcall(String, Vec<Expression>), // f(args)
+    ArrayLen(Box<LValue>), // length array
+
+    UnaryOp(Operator, Box<Expression>),
+    InfixOp(Operator, Box<Expression>, Box<Expression>), // left op right
+    Ternary(Box<Expression>, Box<Expression>, Box<Expression>), // a ? b : c
 }
 
 #[derive(Debug, PartialEq)]

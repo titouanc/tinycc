@@ -1,0 +1,3 @@
+#!/bin/bash
+
+cpp $1 | sed -E 's/^#.*//g'

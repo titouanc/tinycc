@@ -47,7 +47,7 @@ pub enum Expression {
     Ternary(Box<Expression>, Box<Expression>, Box<Expression>), // a ? b : c
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Type {
     Int,
     Char,

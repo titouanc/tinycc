@@ -1,0 +1,19 @@
+#define for(init, cond, incr, body) init; while (cond) {if (1) body incr;}
+
+#define N 10
+
+int matmul(int[N][N] A, int[N][N] B, int[N][N] C){
+    int i;
+    int j;
+    int k;
+    int x;
+    for(i=0, i<N, i = i+1, {
+        for(j=0, j<N, j = j+1, {
+            x = 0;
+            for(k=0, k<N, k = k+1, {
+                x = x + A[i][k] * B[k][j];
+            })
+            C[i][j] = x;
+        })
+    })
+}

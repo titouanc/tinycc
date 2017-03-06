@@ -1,4 +1,5 @@
 pub mod ast;
+pub mod analysis;
 pub mod grammar; // synthesized by LALRPOP
 
 extern crate lalrpop_util;
@@ -24,6 +25,12 @@ pub fn parse(src: &str) -> ast::Program {
             panic!("Could not continue");
         },
     };
+}
+
+pub fn compile(src: &str) {
+    let tree = parse(src);
+    let prog = analysis::Program::new(tree);
+    println!("{:?}", prog);
 }
 
 #[cfg(test)]

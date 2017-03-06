@@ -5,5 +5,6 @@ set -e
 cargo test
 
 for f in fixture/*.tiny; do
-    cargo run < $f
+    echo "Running $f"
+    ./tinypp $f | cargo run
 done

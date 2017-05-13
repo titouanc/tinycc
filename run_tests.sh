@@ -4,7 +4,7 @@ set -e
 
 cargo test
 
-for f in fixture/*.tiny; do
+for f in $(find fixture/ -name '*.tiny'); do
     echo "Running $f"
     ./tinypp $f | cargo run
 done

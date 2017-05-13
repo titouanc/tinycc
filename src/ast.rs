@@ -8,7 +8,7 @@ pub enum Declaration {
     Var(String, Type),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Operator {
     Add,
     Sub,
@@ -20,13 +20,13 @@ pub enum Operator {
     Gt, Gte,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum LValue {
     Identifier(String),
     ArrayItem(Box<LValue>, Expression),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Statement {
     LocalDecl(String, Type),
     RValue(Expression),
@@ -36,7 +36,7 @@ pub enum Statement {
     Return(Expression),
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     Lit(i32), // Litteral value
     LValue(Box<LValue>), // variable (optional indexing)
@@ -54,6 +54,15 @@ pub enum Type {
     ArrayOf(Box<Type>, usize)
 }
 
+impl Type {
+    pub fn size(&self) -> usize {
+        return match *self {
+            Type::Char => 1,
+            Type::Int  => 4,
+            Type::ArrayOf(ref t, n) => n * t.size(),
+        }
+    }
+}
 
 ////////////// Formatting //////////////
 fn print_block(body: &Vec<Statement>, f: &mut fmt::Formatter) -> fmt::Result {

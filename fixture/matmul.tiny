@@ -3,10 +3,10 @@
 #define N 10
 
 int matmul(int[N][N] A, int[N][N] B, int[N][N] C){
+    int x;
     int i;
     int j;
     int k;
-    int x;
     for(i=0, i<N, i = i+1, {
         for(j=0, j<N, j = j+1, {
             x = 0;
@@ -16,4 +16,12 @@ int matmul(int[N][N] A, int[N][N] B, int[N][N] C){
             C[i][j] = x;
         })
     })
+}
+
+int tiny(){
+    int[N][N] A;
+    int[N][N] B;
+    int[N][N] C;
+
+    matmul(A, B, C);
 }

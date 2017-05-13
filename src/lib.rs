@@ -1,5 +1,5 @@
 pub mod ast;
-pub mod analysis;
+pub mod scope;
 pub mod grammar; // synthesized by LALRPOP
 
 extern crate lalrpop_util;
@@ -29,7 +29,7 @@ pub fn parse(src: &str) -> ast::Program {
 
 pub fn compile(src: &str) {
     let tree = parse(src);
-    let prog = analysis::Program::new(tree);
+    let prog = scope::analyze(&tree);
     println!("{:?}", prog);
 }
 

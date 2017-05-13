@@ -1,0 +1,3 @@
+int no_tiny(){
+    return 42;
+}

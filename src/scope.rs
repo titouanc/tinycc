@@ -46,6 +46,16 @@ impl <'a> Scope<'a> {
         }
     }
 
+    pub fn lookup_func(&self, name: &String) -> Option<Function> {
+        if let Some(f) = self.funcs.get(name) {
+            Some(f.clone())
+        } else if let Some(ref p) = self.parent {
+            p.lookup_func(name)
+        } else {
+            None
+        }
+    }
+
     fn check_entry_point(&self) -> Result<(),String> {
         if let Some(f) = self.funcs.get(& "tiny".to_string()) {
             if f.typ != ast::Type::Int {
@@ -68,27 +78,55 @@ impl <'a> Scope<'a> {
                     return Err(format!("Variable `{}` not found", name));
                 }
             },
+            &ast::LValue::ArrayItem(ref lval, ref expr) => {
+                try!(self.check_lvalue(lval));
+                try!(self.check_expr(expr));
+            }
+        }
+        Ok(())
+    }
+
+    fn check_expr(&self, expr: &ast::Expression) -> Result<(), String> {
+        match expr {
+            &ast::Expression::LValue(ref x) => self.check_lvalue(x),
+            &ast::Expression::Funcall(ref name, ref args) => {
+                if let None = self.lookup_func(name) {
+                    return Err(format!("Function `{}` not found", name));
+                }
+                for arg in args {
+                    try!(self.check_expr(arg));
+                }
+                Ok(())
+            },
+            _ => Ok(())
+        }
+    }
+
+    fn check_statement(&mut self, s: &ast::Statement) -> Result<(),String> {
+        match s {
+            &ast::Statement::LocalDecl(ref n, ref t) => {
+                self.add_variable(&n, &t)
+            },
+            &ast::Statement::Return(ref expr) => {
+                try!(self.check_expr(expr));
+            },
+            &ast::Statement::Assign(ref lval, ref expr) => {
+                try!(self.check_lvalue(lval));
+                try!(self.check_expr(expr));
+            },
             _ => {}
         }
         Ok(())
     }
 
-    fn check_defined(&self) -> Result<(),String> {
+    fn check_functions(&self) -> Result<(),String> {
         for (_, ref func) in self.funcs.iter() {
             let mut sub = self.sub();
             for ref v in func.args.iter() {
                 sub.add_variable(& v.name, & v.typ);
             }
             for s in func.body.iter() {
-                match s {
-                    &ast::Statement::LocalDecl(ref n, ref t) => {
-                        sub.add_variable(&n, &t)
-                    },
-                    &ast::Statement::Assign(ref lval, _) => {
-                        try!(sub.check_lvalue(lval))
-                    }
-                    _ => {}
-                }
+                try!(sub.check_statement(s));
             }
             println!("{:?}", sub.vars);
         }
@@ -97,7 +135,7 @@ impl <'a> Scope<'a> {
 
     pub fn static_check(&self) -> Result<(),String> {
         try!(self.check_entry_point());
-        try!(self.check_defined());
+        try!(self.check_functions());
         Ok(())
     }
 }
@@ -108,7 +146,7 @@ pub struct Variable {
     typ: ast::Type,
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Function {
     name: String,
     typ: ast::Type,

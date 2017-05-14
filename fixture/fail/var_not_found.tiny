@@ -1,3 +1,4 @@
 int tiny(){
-    x = 2;
+    int x;
+    x = y;
 }

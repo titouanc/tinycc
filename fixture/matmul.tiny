@@ -7,8 +7,8 @@ int matmul(int[N][N] A, int[N][N] B, int[N][N] C){
     int i;
     int j;
     int k;
-    for(i=0, i<N, i = i+1, {
-        for(j=0, j<N, j = j+1, {
+    for(i=0, i<lengthOf(A), i = i+1, {
+        for(j=0, j<lengthOf(A[i]), j = j+1, {
             x = 0;
             for(k=0, k<N, k = k+1, {
                 x = x + A[i][k] * B[k][j];

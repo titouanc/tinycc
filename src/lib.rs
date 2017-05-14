@@ -151,4 +151,29 @@ mod test_parser {
         test_with_repr("int f(){if (x) if (y) return 1; else return 2; else return 3;}",
                        "int f(){if (x){if (y){return 1;} else {return 2;}} else {return 3;}}");
     }
+
+    #[test]
+    fn accepts_scalar(){
+        let t1 = ast::Type::Int;
+        let t2 = ast::Type::Int;
+        let t3 = ast::Type::Char;
+        let t4 = ast::Type::ArrayOf(Box::new(ast::Type::Int), 42);
+        assert!(t1.accepts(&t2));
+        assert!(t2.accepts(&t1));
+        assert!(t1.accepts(&t3));
+        assert!(! t3.accepts(&t1));
+        assert!(! t1.accepts(&t4));
+        assert!(! t4.accepts(&t1));
+    }
+
+    #[test]
+    fn accepts_1d(){
+        let t1 = ast::Type::ArrayOf(Box::new(ast::Type::Int), 42);
+        let t2 = ast::Type::ArrayOf(Box::new(ast::Type::Int), 10);
+        let t3 = ast::Type::ArrayOf(Box::new(t2.clone()), 42);
+        assert!(t1.accepts(&t2));
+        assert!(t2.accepts(&t1));
+        assert!(! t1.accepts(&t3));
+        assert!(! t3.accepts(&t1));
+    }
 }

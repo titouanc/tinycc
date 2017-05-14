@@ -39,6 +39,7 @@ pub enum Statement {
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     Lit(i32), // Litteral value
+    CharLit(char), // Litteral char
     LValue(Box<LValue>), // variable (optional indexing)
     Funcall(String, Vec<Expression>), // f(args)
     ArrayLen(Box<LValue>), // length array
@@ -60,6 +61,17 @@ impl Type {
             Type::Char => 1,
             Type::Int  => 4,
             Type::ArrayOf(ref t, n) => n * t.size(),
+        }
+    }
+
+    pub fn accepts(&self, other: &Type) -> bool {
+        match (self, other) {
+            (&Type::ArrayOf(ref l, _), &Type::ArrayOf(ref r, _)) => l.accepts(&*r),
+            (&Type::ArrayOf(_, _), _) => false,
+            (_, &Type::ArrayOf(_, _)) => false,
+            (&Type::Int, _) => true,
+            (&Type::Char, &Type::Char) => true,
+            _ => false
         }
     }
 }
@@ -147,6 +159,7 @@ impl fmt::Display for Expression {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         match *self {
             Expression::Lit(x) => write!(f, "{}", x),
+            Expression::CharLit(x) => write!(f, "'{}'", x),
             Expression::LValue(ref left) => write!(f, "{}", left),
             Expression::Funcall(ref name, ref args) => {
                 write!(f, "{}(", name).unwrap();

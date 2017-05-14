@@ -1,0 +1,6 @@
+int tiny(){
+    int[10] x;
+    int y;
+
+    return x + y;
+}

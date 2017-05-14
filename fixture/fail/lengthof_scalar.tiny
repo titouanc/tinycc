@@ -1,0 +1,5 @@
+int tiny(){
+    int x;
+    int y;
+    y = lengthOf x;
+}

@@ -11,7 +11,12 @@ Identifier: String = {<s:r"[a-zA-Z_][a-zA-Z0-9_]*"> => s.to_string()};
 Number: i32 = {<n:r"[0-9]+"> => i32::from_str(n).unwrap()};
 
 // A litteral char
-Char: char = {<c:r"'.'"> => c.chars().nth(1).unwrap()};
+Char: char = {
+    <c:r"'.'"> => c.chars().nth(1).unwrap(),
+    <x:r"'\\x[0-9a-fA-F][0-9a-fA-F]'"> => {
+        u8::from_str_radix(&x[3..5], 16).unwrap() as char
+    }
+};
 
 // A (dimensional) type name
 Type: ast::Type = {

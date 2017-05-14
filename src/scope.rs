@@ -26,8 +26,8 @@ impl <'a> Scope<'a> {
         Scope {vars: HashMap::new(), funcs: HashMap::new(), parent: Some(self)}
     }
 
-    pub fn add_variable(&mut self, name: &String, typ: &ast::Type) {
-        let res = Variable {name: name.to_string(), typ: typ.clone()};
+    pub fn add_variable(&mut self, name: &String, typ: &ast::Type, global: bool) {
+        let res = Variable {name: name.to_string(), typ: typ.clone(), global: global};
         self.vars.insert(name.to_string(), res);
     }
 
@@ -38,7 +38,7 @@ impl <'a> Scope<'a> {
             name: name.to_string(),
             typ: typ.clone(),
             args: args.iter().map(|ref arg|
-                Variable {name: arg.0.to_string(), typ: arg.1.clone()}
+                Variable {name: arg.0.to_string(), typ: arg.1.clone(), global: false}
             ).collect(),
             body: body.clone()
         };
@@ -212,16 +212,31 @@ impl <'a> Scope<'a> {
         }
     }
 
-    fn check_statement(&mut self, s: &ast::Statement) -> Result<(),String> {
+    fn check_block(&self, sts: &Vec<ast::Statement>, ret_type: &ast::Type) -> Result<(),String> {
+        let mut sub = self.sub();
+        let u: Vec<String> = sts.iter().map(|e| format!("{}", e)).collect();
+        // println!("Analyze {}", u.join("\n        "));
+        for s in sts.iter(){
+            try!(sub.check_statement(s, ret_type));
+        }
+        Ok(())
+    }
+
+    fn check_statement(&mut self, s: &ast::Statement, ret_type: &ast::Type) -> Result<(),String> {
         match s {
             &ast::Statement::LocalDecl(ref n, ref t) => {
-                self.add_variable(&n, &t)
+                self.add_variable(&n, &t, false)
             },
             &ast::Statement::RValue(ref expr) => {
                 try!(self.check_expr(expr));
             }
             &ast::Statement::Return(ref expr) => {
                 try!(self.check_expr(expr));
+                let t = try!(self.get_expr_type(expr));
+                if ! ret_type.accepts(&t) {
+                    return Err(format!("Type error in `return {}`: expecting {}, got {}",
+                                       expr, ret_type, t))
+                }
             },
             &ast::Statement::Assign(ref lval, ref expr) => {
                 try!(self.check_lvalue(lval));
@@ -233,7 +248,26 @@ impl <'a> Scope<'a> {
                                        lval, expr, t, tv));
                 }
             },
-            _ => {} //{return err("Not implemented");}
+            &ast::Statement::Condition(ref cond, ref cons, ref alt) => {
+                try!(self.check_expr(cond));
+                let tcond = try!(self.get_expr_type(cond));
+                if ! ast::Type::Int.accepts(&tcond) {
+                    return Err(format!("Not a valid condition: {}\nin {}",
+                                       cond, s));
+                }
+                try!(self.check_block(&cons, ret_type));
+                try!(self.check_block(&alt, ret_type));
+            },
+            &ast::Statement::Loop(ref cond, ref body) => {
+                try!(self.check_expr(cond));
+                let tcond = try!(self.get_expr_type(cond));
+                if ! ast::Type::Int.accepts(&tcond) {
+                    return Err(format!("Not a valid condition: {}\nin {}",
+                                       cond, s));
+                }
+                try!(self.check_block(&body, ret_type));
+            },
+            _ => {return Err(format!("Not implemented {}", s));}
         }
         Ok(())
     }
@@ -242,19 +276,23 @@ impl <'a> Scope<'a> {
         let print_func = Function {
             name: "print".to_string(),
             typ: ast::Type::Int,
-            args: vec![Variable {name: "something".to_string(), typ: ast::Type::Int}],
+            args: vec![Variable {name: "something".to_string(), typ: ast::Type::Int, global:false}],
+            body: vec![]
+        };
+        let read_func = Function {
+            name: "read".to_string(),
+            typ: ast::Type::Char,
+            args: vec![],
             body: vec![]
         };
         for (_, ref func) in self.funcs.iter() {
             let mut sub = self.sub();
             for ref v in func.args.iter() {
-                sub.add_variable(& v.name, & v.typ);
+                sub.add_variable(& v.name, & v.typ, false);
             }
             sub.funcs.insert("print".to_string(), print_func.clone());
-            for s in func.body.iter() {
-                try!(sub.check_statement(s));
-            }
-            println!("{:?}", sub.vars);
+            sub.funcs.insert("read".to_string(), read_func.clone());
+            try!(sub.check_block(&func.body, &func.typ));
         }
         Ok(())
     }
@@ -270,6 +308,7 @@ impl <'a> Scope<'a> {
 pub struct Variable {
     name: String,
     typ: ast::Type,
+    global: bool
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -286,7 +325,7 @@ pub fn analyze(prog: &ast::Program) -> Result<Scope,String> {
     for decl in prog {
         match decl {
             &ast::Declaration::Var(ref name, ref typ) => {
-                global.add_variable(name, typ);
+                global.add_variable(name, typ, true);
             },
             &ast::Declaration::Func(ref name, ref typ, ref args, ref body) => {
                 global.add_function(name, typ, args, body)

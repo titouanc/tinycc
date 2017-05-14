@@ -2,21 +2,19 @@ use ::ast;
 use std::collections::HashMap;
 
 #[derive(Debug, PartialEq)]
-pub struct Scope {
-    vars: HashMap<String, Variable>,
-    funcs: HashMap<String, Function>,
-    sts: Vec<ast::Statement>,
+pub struct Scope<'a> {
+    parent: Option<& 'a Scope<'a>>,
+    pub vars: HashMap<String,Variable>,
+    pub funcs: HashMap<String,Function>,
 }
 
-pub enum Lookup<'a> {
-    NotFound,
-    Var(& 'a Variable),
-    Func(& 'a Function)
-}
+impl <'a> Scope<'a> {
+    pub fn new() -> Scope<'a> {
+        Scope {vars: HashMap::new(), funcs: HashMap::new(), parent: None}
+    }
 
-impl Scope {
-    pub fn new() -> Scope {
-        Scope {vars: HashMap::new(), funcs: HashMap::new(), sts: vec![]}
+    pub fn sub(&self) -> Scope {
+        Scope {vars: HashMap::new(), funcs: HashMap::new(), parent: Some(self)}
     }
 
     pub fn add_variable(&mut self, name: &String, typ: &ast::Type) {
@@ -33,24 +31,78 @@ impl Scope {
             args: args.iter().map(|ref arg|
                 Variable {name: arg.0.to_string(), typ: arg.1.clone()}
             ).collect(),
-            inner_scope: Scope::new(),
-            body: vec![]
+            body: body.clone()
         };
         self.funcs.insert(name.to_string(), res);
     }
 
-    pub fn lookup<'a>(& 'a self, name: &String) -> Lookup<'a> {
-        match self.vars.get(name) {
-            Some(x) => return Lookup::Var(x),
-            None => match self.funcs.get(name) {
-                Some(x) => return Lookup::Func(x),
-                None => Lookup::NotFound
-            }
+    pub fn lookup_var(&self, name: &String) -> Option<Variable> {
+        if let Some(v) = self.vars.get(name) {
+            Some(v.clone())
+        } else if let Some(ref p) = self.parent {
+            p.lookup_var(name)
+        } else {
+            None
         }
+    }
+
+    fn check_entry_point(&self) -> Result<(),String> {
+        if let Some(f) = self.funcs.get(& "tiny".to_string()) {
+            if f.typ != ast::Type::Int {
+                return err("tiny() return type is not int")
+            }
+            if f.args.len() > 0 {
+                return err("tiny() function takes no argument")
+            }
+        } else {
+            return err("Function tiny() not found");
+        }
+
+        Ok(())
+    }
+
+    fn check_lvalue(&self, lval: &ast::LValue) -> Result<(), String> {
+        match lval {
+            &ast::LValue::Identifier(ref name) => {
+                if let None = self.lookup_var(name) {
+                    return Err(format!("Variable `{}` not found", name));
+                }
+            },
+            _ => {}
+        }
+        Ok(())
+    }
+
+    fn check_defined(&self) -> Result<(),String> {
+        for (_, ref func) in self.funcs.iter() {
+            let mut sub = self.sub();
+            for ref v in func.args.iter() {
+                sub.add_variable(& v.name, & v.typ);
+            }
+            for s in func.body.iter() {
+                match s {
+                    &ast::Statement::LocalDecl(ref n, ref t) => {
+                        sub.add_variable(&n, &t)
+                    },
+                    &ast::Statement::Assign(ref lval, _) => {
+                        try!(sub.check_lvalue(lval))
+                    }
+                    _ => {}
+                }
+            }
+            println!("{:?}", sub.vars);
+        }
+        Ok(())
+    }
+
+    pub fn static_check(&self) -> Result<(),String> {
+        try!(self.check_entry_point());
+        try!(self.check_defined());
+        Ok(())
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Variable {
     name: String,
     typ: ast::Type,
@@ -61,7 +113,6 @@ pub struct Function {
     name: String,
     typ: ast::Type,
     args: Vec<Variable>,
-    inner_scope: Scope,
     body: Vec<ast::Statement>,
 }
 
@@ -69,21 +120,7 @@ fn err<T>(msg: &str) -> Result<T,String> {
     Err(msg.to_string())
 }
 
-fn check_entry_point(global: &Scope) -> Result<bool,String> {
-    match global.lookup(& "tiny".to_string()) {
-        Lookup::Func(f) => {
-            if f.typ != ast::Type::Int {
-                return err("tiny() return type is not int")
-            }
-            if f.args.len() > 0 {
-                return err("tiny() function takes no argument")
-            }
-        },
-        _ => return err("Function tiny() not found")
-    }
 
-    Ok(true)
-}
 
 pub fn analyze(prog: &ast::Program) -> Result<Scope,String> {
     let mut global = Scope::new();
@@ -99,9 +136,6 @@ pub fn analyze(prog: &ast::Program) -> Result<Scope,String> {
         }
     }
 
-    if let Err(x) = check_entry_point(&global) {
-        return Err(x)
-    }
-
+    try!(global.static_check());
     Ok(global)
 }

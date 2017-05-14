@@ -29,8 +29,12 @@ pub fn parse(src: &str) -> ast::Program {
 
 pub fn compile(src: &str) {
     let tree = parse(src);
-    let prog = scope::analyze(&tree);
-    println!("{:?}", prog);
+    match scope::analyze(&tree){
+        Ok(_) => {},
+        Err(msg) => {
+            panic!("\x1b[31;1mStatic analysis error:\x1b[0m {}", msg);
+        }
+    }
 }
 
 #[cfg(test)]

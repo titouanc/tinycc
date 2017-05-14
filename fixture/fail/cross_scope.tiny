@@ -1,0 +1,12 @@
+int tiny(){
+    int x;
+    x = 3 + 7;
+
+    if (x > 7){
+        int y;
+        y = x + 2;
+    } else {
+        int z;
+        z = x + y;
+    }
+}

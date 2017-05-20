@@ -1,28 +1,45 @@
-#define for(init, cond, incr, body) init; while (cond) {if (1) body; incr;}
+// A minimalist Brainfuck VM written in Tiny
+
+#define _TINY
+
+#ifdef _TINY
+#define for(init, cond, incr, body) init; while (cond) {if (1) body incr;}
+#define ARRAY(type, size, name) type[size] name
+#else
+#define ARRAY(type, size, name) type name[size]
+#define for(init, cond, incr, body) for (init; cond; incr) body
+#define lengthOf(x) 1024
+#define tiny main
+#define print putchar
+#define read getchar
+#endif
+
 #define  MEMSIZE 1024
 #define PROGSIZE 1024
 
-int init(char[MEMSIZE] mem){
+int init(ARRAY(char,MEMSIZE,mem)){
     int i;
-    for(i=0, i<lengthOf(program), i=i+1, mem[i] = '\x00')
+    for(i=0, i<lengthOf(mem), i++, {
+        mem[i] = '\x00';
+    })
 }
 
-int search_matching(char[PROGSIZE] prog, int pc, char incr, char decr, int step){
+int search_matching(ARRAY(char,PROGSIZE,prog), int pc, char incr, char decr, int step){
     int counter;
     counter = 1;
     while (counter > 0){
         pc = pc + step;
         if (prog[pc] == incr){
-            counter = counter + 1;
+            counter++;
         }
         if (prog[pc] == decr) {
-            counter = counter - 1;
+            counter--;
         }
     }
     return pc;
 }
 
-int load_program(char[PROGSIZE] prog){
+int load_program(ARRAY(char,PROGSIZE,prog)){
     int i;
     char c;
 
@@ -31,7 +48,7 @@ int load_program(char[PROGSIZE] prog){
 
     while (10 != c){
         prog[i] = c;
-        i = i + 1;
+        i++;
         c = read();
     }
 
@@ -41,13 +58,14 @@ int load_program(char[PROGSIZE] prog){
 int tiny(){
     int ptr;
     int pc;
-    char[MEMSIZE]   mem;
-    char[PROGSIZE] prog;
+    ARRAY(char,MEMSIZE,mem);
+    ARRAY(char,PROGSIZE,prog);
     char instr;
     
     pc = 0;
     ptr = 0;
     load_program(prog);
+    init(mem);
     instr = prog[pc];
 
     while (instr != '\x00'){
@@ -56,19 +74,19 @@ int tiny(){
         } else if (instr == '<'){
             ptr = ptr - 1;
         } else if (instr == '+'){
-            mem[ptr] = mem[ptr] + '\x01';
+            mem[ptr]++;
         } else if (instr == '-'){
-            mem[ptr] = mem[ptr] - '\x01';
+            mem[ptr]--;
         } else if (instr == '.'){
             print(mem[ptr]);
         } else if (instr == ','){
             mem[ptr] = read();
-        } else if (instr == '['){
+        } else if (instr == '[' && mem[ptr] == 0){
             pc = search_matching(prog, pc+1, '[', ']', 1);
-        } else if (instr == ']'){
+        } else if (instr == ']' && mem[ptr] != 0){
             pc = search_matching(prog, pc-1, ']', '[', 0-1);
         } else {}
-        pc = pc + 1;
+        pc++;
         instr = prog[pc];
     }
 }

@@ -225,6 +225,11 @@ impl <'a> Scope<'a> {
     fn check_statement(&mut self, s: &ast::Statement, ret_type: &ast::Type) -> Result<(),String> {
         match s {
             &ast::Statement::LocalDecl(ref n, ref t) => {
+                if self.vars.contains_key(n) {
+                    return Err(format!("Variable already declared `{}`", n));
+                } else if let Some(_) = self.lookup_var(n){
+                    println!("Warning: shadowing variable `{}`", n);
+                }
                 self.add_variable(&n, &t, false)
             },
             &ast::Statement::RValue(ref expr) => {

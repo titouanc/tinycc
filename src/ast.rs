@@ -1,11 +1,35 @@
 use std::fmt;
 
+pub trait AST {
+    fn const_fold(&self) -> Self where Self: Sized+Clone {
+        self.clone()
+    }
+}
+
+
 pub type Program = Vec<Declaration>;
 
-#[derive(Debug, PartialEq)]
+impl AST for Program {
+    fn const_fold(&self) -> Program {
+        self.iter().map(|ref x| x.const_fold()).collect()
+    }
+}
+
+#[derive(Debug, PartialEq, Clone)]
 pub enum Declaration {
     Func(String, Type, Vec<(String, Type)>, Vec<Statement>),
     Var(String, Type),
+}
+
+impl AST for Declaration {
+    fn const_fold(&self) -> Declaration {
+        match self {
+            &Declaration::Func(ref n, ref t, ref args, ref body) =>
+                Declaration::Func(n.to_string(), t.clone(), args.clone(),
+                                  body.iter().map(|ref x| x.const_fold()).collect()),
+            _ => self.clone(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -18,12 +42,24 @@ pub enum Operator {
     Eql, NotEql,
     Lt, Lte,
     Gt, Gte,
+    Or, And,
+    BitOr, BitAnd, BitXor,
 }
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum LValue {
     Identifier(String),
     ArrayItem(Box<LValue>, Expression),
+}
+
+impl AST for LValue {
+    fn const_fold(&self) -> LValue {
+        match self {
+            &LValue::ArrayItem(ref l, ref expr) =>
+                LValue::ArrayItem(l.clone(), expr.const_fold()),
+            _ => self.clone(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -36,6 +72,25 @@ pub enum Statement {
     Return(Expression),
 }
 
+impl AST for Statement {
+    fn const_fold(&self) -> Statement {
+        match self {
+            &Statement::RValue(ref e) => Statement::RValue(e.const_fold()),
+            &Statement::Condition(ref cond, ref cons, ref alt) =>
+                Statement::Condition(cond.const_fold(),
+                    cons.iter().map(|ref x| x.const_fold()).collect(),
+                    alt.iter().map(|ref x| x.const_fold()).collect()),
+            &Statement::Loop(ref cond, ref body) =>
+                Statement::Loop(cond.const_fold(),
+                    body.iter().map(|ref x| x.const_fold()).collect()),
+            &Statement::Assign(ref l, ref e) =>
+                Statement::Assign(l.const_fold(), e.const_fold()),
+            &Statement::Return(ref r) => Statement::Return(r.const_fold()),
+            _ => self.clone(),
+        }
+    }
+}
+
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
     Lit(i32), // Litteral value
@@ -46,6 +101,34 @@ pub enum Expression {
 
     InfixOp(Operator, Box<Expression>, Box<Expression>), // left op right
     Ternary(Box<Expression>, Box<Expression>, Box<Expression>), // a ? b : c
+}
+
+impl AST for Expression {
+    // Constant folding implementation at the AST level
+    fn const_fold(&self) -> Expression {
+        match self {
+            &Expression::CharLit(x) => Expression::Lit(x as i32),
+            &Expression::InfixOp(ref op, ref l, ref r) => {
+                let lf = l.const_fold();
+                let rf = r.const_fold();
+                if let (&Expression::Lit(ref lfl), &Expression::Lit(ref rfl)) = (&lf, &rf) {
+                    match op {
+                        &Operator::Add => return Expression::Lit(lfl + rfl),
+                        &Operator::Sub => return Expression::Lit(lfl - rfl),
+                        &Operator::Mul => return Expression::Lit(lfl * rfl),
+                        &Operator::Div => return Expression::Lit(lfl / rfl),
+                        _ => {}
+                    }
+                }
+                return Expression::InfixOp(op.clone(), Box::new(lf), Box::new(rf));
+            },
+            &Expression::Funcall(ref s, ref exprs) =>
+                Expression::Funcall(s.to_string(), exprs.iter()
+                                                        .map(|ref x| x.const_fold())
+                                                        .collect()),
+            _ => self.clone(),
+        }
+    }
 }
 
 #[derive(Debug, PartialEq, Clone)]
@@ -66,12 +149,13 @@ impl Type {
 
     pub fn accepts(&self, other: &Type) -> bool {
         match (self, other) {
+            // Two arrays, check inner type
             (&Type::ArrayOf(ref l, _), &Type::ArrayOf(ref r, _)) => l.accepts(&*r),
+            // Array and non-array: NO
             (&Type::ArrayOf(_, _), _) => false,
+            // non-array and array: NO
             (_, &Type::ArrayOf(_, _)) => false,
-            (&Type::Int, _) => true,
-            (&Type::Char, &Type::Char) => true,
-            _ => false
+            _ => true,
         }
     }
 }
@@ -116,6 +200,11 @@ impl fmt::Display for Operator {
             &Operator::Lte => write!(f, "<="),
             &Operator::Gt => write!(f, ">"),
             &Operator::Gte => write!(f, ">="),
+            &Operator::And => write!(f, "&&"),
+            &Operator::Or => write!(f, "||"),
+            &Operator::BitAnd => write!(f, "&"),
+            &Operator::BitOr => write!(f, "|"),
+            &Operator::BitXor => write!(f, "^"),
         }
     }
 }

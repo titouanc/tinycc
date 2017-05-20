@@ -17,10 +17,10 @@ FAIL() {
 
 for f in fixture/*.tiny; do
     echo -e "\033[1m == Running $f ==\033[0m"
-    ./tinypp $f | ./target/debug/tinycc && PASS || FAIL
+    ./tinycc $f && PASS || FAIL
 done
 
 for f in fixture/fail/*.tiny; do
     echo -e "\033[1m == Running $f (should fail) ==\033[0m"
-    ./tinypp $f | ./target/debug/tinycc && FAIL || PASS
+    ./tinycc $f && FAIL || PASS
 done

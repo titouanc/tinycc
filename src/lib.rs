@@ -11,7 +11,8 @@ pub fn parse(src: &str) -> ast::Program {
         Err(err) => {
             match err {
                 InvalidToken {location: loc} =>
-                    println!("\x1b[34mInvalid token \x1b[31m {:?}\x1b[0m", loc),
+                    println!("\x1b[34mInvalid token \x1b[31m {:?}\x1b[0m",
+                             src[loc..loc+1].to_string()),
                 UnrecognizedToken {token: Some((lo, (_, t), hi)), expected: exp} => {
                     println!("\x1b[34mUnexpected token \x1b[31m{:?}\x1b[0m in", t);
                     println!("{}\x1b[41m{}\x1b[0m{}",
@@ -28,10 +29,14 @@ pub fn parse(src: &str) -> ast::Program {
 }
 
 pub fn compile(src: &str) {
-    let tree = parse(src);
+    use ast::AST;
+    let tree = parse(src).const_fold();
     match scope::analyze(&tree){
         Ok(_) => {},
         Err(msg) => {
+            for decl in tree.iter() {
+                println!("{}", decl);
+            }
             panic!("\x1b[31;1mStatic analysis error:\x1b[0m {}", msg);
         }
     }
@@ -161,7 +166,7 @@ mod test_parser {
         assert!(t1.accepts(&t2));
         assert!(t2.accepts(&t1));
         assert!(t1.accepts(&t3));
-        assert!(! t3.accepts(&t1));
+        assert!(t3.accepts(&t1));
         assert!(! t1.accepts(&t4));
         assert!(! t4.accepts(&t1));
     }

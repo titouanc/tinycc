@@ -72,6 +72,16 @@ RestrictedStatement<I>: ast::Statement = {
     <v:VarDecl> ";" => ast::Statement::LocalDecl(v.0, v.1),
     <e:Expr> ";" => ast::Statement::RValue(e),
     <l:LValue> "=" <r:Expr> ";" =>  ast::Statement::Assign(l, r),
+    <l:LValue> "++" ";" => ast::Statement::Assign(l.clone(),
+        ast::Expression::InfixOp(ast::Operator::Add,
+                                 Box::new(ast::Expression::LValue(Box::new(l.clone()))),
+                                 Box::new(ast::Expression::Lit(1)))
+    ),
+    <l:LValue> "--" ";" => ast::Statement::Assign(l.clone(),
+        ast::Expression::InfixOp(ast::Operator::Sub,
+                                 Box::new(ast::Expression::LValue(Box::new(l.clone()))),
+                                 Box::new(ast::Expression::Lit(1)))
+    ),
     "return" <e:Expr> ";" => ast::Statement::Return(e),
     "while" "(" <cond:Expr> ")" <body:Block> =>
         ast::Statement::Loop(cond, body),
@@ -82,7 +92,14 @@ RestrictedStatement<I>: ast::Statement = {
 };
 
 // Expressions
-pub Expr: ast::Expression = Cmp;
+pub Expr: ast::Expression = Logical;
+
+// Logical expression (and, or)
+Logical: ast::Expression = {
+    <l:Logical> <op:LogicOp> <r:Cmp> =>
+        ast::Expression::InfixOp(op, Box::new(l), Box::new(r)),
+    Cmp,
+};
 
 // Comparative expr
 Cmp: ast::Expression = {
@@ -107,8 +124,14 @@ Factor: ast::Expression = {
 
 // a ? b : c
 Ternary: ast::Expression = {
-    <cond:Atom> "?" <cons:Atom> ":" <alt:Atom> =>
+    <cond:Bitwise> "?" <cons:Bitwise> ":" <alt:Bitwise> =>
         ast::Expression::Ternary(Box::new(cond), Box::new(cons), Box::new(alt)),
+    Bitwise,
+};
+
+Bitwise: ast::Expression = {
+    <l:Atom> <op:BitOp> <r:Atom> =>
+        ast::Expression::InfixOp(op, Box::new(l), Box::new(r)),
     Atom,
 };
 
@@ -132,6 +155,19 @@ Primitive: ast::Expression = {
 LValue: ast::LValue = {
     <l:LValue> "[" <i:Expr> "]" => ast::LValue::ArrayItem(Box::new(l), i),
     <Identifier> => ast::LValue::Identifier(<>),
+};
+
+LogicOp: ast::Operator = {
+    "&&" => ast::Operator::And,
+    "and" => ast::Operator::And,
+    "||" => ast::Operator::Or,
+    "or" => ast::Operator::Or,
+};
+
+BitOp: ast::Operator = {
+    "^" => ast::Operator::BitXor,
+    "&" => ast::Operator::BitAnd,
+    "|" => ast::Operator::BitOr,
 };
 
 // Comparison operators

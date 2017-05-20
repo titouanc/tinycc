@@ -1,0 +1,8 @@
+#!/bin/bash
+
+TARGET=debug
+[[ -z $2 ]] || TARGET=$2
+
+HERE=$(dirname $0)
+
+$HERE/tinypp $1 | $HERE/target/$TARGET/tinycc

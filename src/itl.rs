@@ -29,28 +29,30 @@ impl fmt::Display for OpCode {
         match *self {
             NOP => write!(f, "NOP"),
             BinOp(ref name, ref op, ref l, ref r) =>
-                write!(f, "{} = {} {} {}", name, l, op, r),
+                write!(f, "{} = ({} {} {})", name, l, op, r),
             Immediate(ref name, ref val) =>
                 write!(f, "{} = {}", name, val),
             Call(ref name, ref func, ref args) =>
-                write!(f, "{} = {}({:?})", name, func, args),
+                write!(f, "{} = \x1b[36;1mCALL\x1b[0m {} {:?}", name, func, args),
             Load(ref l, ref r, ref off) =>
-                write!(f, "{} = {}[{}]", l, r, off),
+                write!(f, "{} = \x1b[32;1mLOAD\x1b[0m {} [+{}]", l, r, off),
             Store(ref l, ref off, ref r) =>
-                write!(f, "{}[{}] = {}", l, off, r),
+                write!(f, "\x1b[32;1mSTORE\x1b[0m {} [+{}] = {}", l, off, r),
             Assign(ref l, ref r) =>
                 write!(f, "{} = {}", l, r),
-            If(ref cond, ref jmp) =>
-                write!(f, "IF {} OR JMP {}", cond, jmp),
+            If(ref cond, ref loc) =>
+                write!(f, "\x1b[34;1mIF\x1b[0m {} \x1b[34;1mOR GOTO\x1b[0m \x1b[33m{}\x1b[0m", cond, loc),
+            Goto(ref loc) =>
+                write!(f, "\x1b[34;1mGOTO\x1b[0m \x1b[33m{}\x1b[0m", loc),
             Return(ref v) =>
-                write!(f, "RET {}", v),
+                write!(f, "\x1b[36;1mRET\x1b[0m {}", v),
             _ => write!(f, "<OpCode>"),
         }
     }
 }
 
 impl OpCode {
-    pub fn reloc_code(&self, offset: usize) -> OpCode {
+    pub fn reloc(&self, offset: usize) -> OpCode {
         use self::OpCode::*;
         match self {
             &Goto(ref i) => Goto(i + offset),
@@ -95,20 +97,28 @@ impl Block {
             code: vec![],
         };
 
-        for (n, t) in self.inputs.iter() {
-            res.inputs.insert(n.to_string(), t.clone());
+        for (k, v) in self.inputs.iter(){
+            res.inputs.insert(k.to_string(), v.clone());
         }
 
         for st in body.iter() {
             res.internalize_statement(st);
         }
+        
+        for (old, new) in res.outputs() {
+            res.code.push(OpCode::Assign(self.latest_name(&old), new.to_string()));
+        }
+
         return res;
     }
 
     fn outputs(&self) -> HashMap<String, String> {
         let mut res = HashMap::new();
         for k in self.inputs.keys() {
-            res.insert(k.to_string(), self.latest_name(k));
+            let v = self.latest_name(k);
+            if k != &v {
+                res.insert(k.to_string(), v);
+            }
         }
         return res;
     }
@@ -183,10 +193,12 @@ impl Block {
         match lval {
             &Identifier(ref name) => {
                 let actual_name = self.latest_name(name);
-                let new_name = self.fresh_name();
-                self.renames.insert(actual_name.to_string(), new_name.to_string());
-                let op = OpCode::Assign(new_name.to_string(), rval);
-                self.code.push(op);
+                // let new_name = self.fresh_name();
+                // self.renames.insert(actual_name.to_string(), new_name.to_string());
+                // let op = OpCode::Assign(new_name.to_string(), rval);
+                // self.code.push(op);
+                self.renames.insert(actual_name.to_string(), rval.to_string());
+
             },
             &ArrayItem(ref l, ref expr) => {
                 let (name, offset) = self.array_offset(l, expr);
@@ -194,6 +206,44 @@ impl Block {
                 self.code.push(op);
             }
         }
+    }
+
+    fn internalize_condition(&mut self, expr: &ast::Expression,
+                                        cons: &Vec<ast::Statement>,
+                                         alt: &Vec<ast::Statement>) {
+        let cond = self.internalize_expression(expr);
+
+        let mut block_cons = self.sub(cons);
+        self.locals.extend(block_cons.locals);
+
+        let mut block_alt = self.sub(alt);
+        self.locals.extend(block_alt.locals);
+
+        let dest_offset = 2 + self.code.len() + block_cons.code.len();
+        self.code.push(OpCode::If(cond, dest_offset));
+        
+        let after_if = self.code.len();
+        self.code.extend(block_cons.code.iter().map(|ref x| x.reloc(after_if)));
+        self.code.push(OpCode::Goto(dest_offset + block_alt.code.len()));
+
+        let after_else = self.code.len();
+        self.code.extend(block_alt.code.iter().map(|ref x| x.reloc(after_else)));
+    }
+
+    fn internalize_loop(&mut self, expr: &ast::Expression,
+                                        body: &Vec<ast::Statement>) {
+        let cond_offset = self.code.len();
+        let cond = self.internalize_expression(expr);
+
+        let mut block_body = self.sub(body);
+        self.locals.extend(block_body.locals);
+
+        let dest_offset = 2 + self.code.len() + block_body.code.len();
+        self.code.push(OpCode::If(cond, dest_offset));
+
+        let after_if = self.code.len();
+        self.code.extend(block_body.code.iter().map(|ref x| x.reloc(after_if)));
+        self.code.push(OpCode::Goto(cond_offset));
     }
 
     fn internalize_statement(&mut self, st: &ast::Statement) {
@@ -210,19 +260,11 @@ impl Block {
                 let rval = self.internalize_expression(expr);
                 self.internalize_assign(lval, rval);
             },
-            &Condition(ref expr, ref cons, ref alt) => {
-                let cond = self.internalize_expression(expr);
-                let mut block_cons = self.sub(cons);
-                for (old, new) in block_cons.outputs() {
-                    self.renames.insert(old.to_string(), new.to_string());
-                }
-
-                let dest_offset = 1 + self.code.len() + block_cons.code.len();
-                self.code.push(OpCode::If(cond, dest_offset));
-                self.code.append(&mut block_cons.code);
+            &Condition(ref cond, ref cons, ref alt) => {
+                self.internalize_condition(cond, cons, alt);
             },
             &Loop(ref cond, ref body) => {
-
+                self.internalize_loop(cond, body);
             },
             &Return(ref expr) => {
                 let r = self.internalize_expression(expr);

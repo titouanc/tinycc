@@ -93,13 +93,13 @@ impl AST for Statement {
 
 #[derive(Debug, PartialEq, Clone)]
 pub enum Expression {
-    Lit(i32), // Litteral value
-    CharLit(char), // Litteral char
-    LValue(Box<LValue>), // variable (optional indexing)
+    Lit(i32),                         // Litteral value
+    CharLit(char),                    // Litteral char
+    LValue(Box<LValue>),              // variable (optional indexing)
     Funcall(String, Vec<Expression>), // f(args)
-    ArrayLen(Box<LValue>), // length array
+    ArrayLen(Box<LValue>),            // length array
 
-    InfixOp(Operator, Box<Expression>, Box<Expression>), // left op right
+    InfixOp(Operator, Box<Expression>, Box<Expression>),        // left op right
     Ternary(Box<Expression>, Box<Expression>, Box<Expression>), // a ? b : c
 }
 

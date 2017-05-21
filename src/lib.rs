@@ -1,5 +1,6 @@
 pub mod ast;
 pub mod scope;
+pub mod itl;
 pub mod grammar; // synthesized by LALRPOP
 
 extern crate lalrpop_util;
@@ -30,6 +31,7 @@ pub fn parse(src: &str) -> ast::Program {
 
 pub fn compile(src: &str) {
     use ast::AST;
+
     let tree = parse(src).const_fold();
     match scope::analyze(&tree){
         Ok(_) => {},
@@ -40,6 +42,9 @@ pub fn compile(src: &str) {
             panic!("\x1b[31;1mStatic analysis error:\x1b[0m {}", msg);
         }
     }
+
+    let sequential = itl::Program::internalize(&tree);
+    println!("{}", sequential);
 }
 
 #[cfg(test)]

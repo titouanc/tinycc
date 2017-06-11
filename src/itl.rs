@@ -11,15 +11,16 @@ type Op = ast::Operator;
 #[derive(Debug,Clone,PartialEq)]
 pub enum OpCode {
     NOP,
-    BinOp(String, Op, String, String), // Var = Var Op Var
-    Immediate(String, i32),            // Var = immediate value
-    Assign(String, String),            // Var = Var
-    Goto(usize),                       // Goto <index>
-    If(String, usize),                 // If Var otherwise jump <index>
-    Call(String, String, Vec<String>), // Var = Func(Vars...)
-    Load(String, String, String),      // Var = Var[Var]
-    Store(String, String, String),     // Var[Var] = Var
-    Return(String),                    // return Var
+    BinOp(String, Op, String, String),   // Var = Var Op Var
+    Mad(String, String, usize, String), // Var = Var * Const + Var
+    Immediate(String, i32),              // Var = immediate value
+    Assign(String, String),              // Var = Var
+    Goto(usize),                         // Goto <index>
+    If(String, usize),                   // If Var otherwise jump <index>
+    Call(String, String, Vec<String>),   // Var = Func(Vars...)
+    Load(String, String, String),        // Var = Var[Var]
+    Store(String, String, String),       // Var[Var] = Var
+    Return(String),                      // return Var
 }
 
 impl fmt::Display for OpCode {
@@ -30,6 +31,8 @@ impl fmt::Display for OpCode {
             NOP => write!(f, "NOP"),
             BinOp(ref name, ref op, ref l, ref r) =>
                 write!(f, "{} = ({} {} {})", name, l, op, r),
+            Mad(ref name, ref a, ref b, ref c) =>
+                write!(f, "{} = ({} * {} + {})", name, a, b, c),
             Immediate(ref name, ref val) =>
                 write!(f, "{} = {}", name, val),
             Call(ref name, ref func, ref args) =>
@@ -63,16 +66,68 @@ impl OpCode {
 }
 
 #[derive(Debug,Clone,PartialEq)]
+pub enum StackOffset {
+    Param(usize, Type),
+    Local(usize, Type),
+}
+
+#[derive(Debug,Clone,PartialEq)]
+pub struct Stack {
+    variables: HashMap<String,StackOffset>
+}
+
+impl Stack {
+    pub fn new(block: &Block) -> Stack {
+        use self::StackOffset::*;
+
+        let mut vars = HashMap::new();
+        let mut local_offset = 0;
+        for (name, typ) in block.locals.iter() {
+            vars.insert(name.to_string(), Local(local_offset, typ.clone()));
+            local_offset += typ.size();
+        }
+
+        let mut param_offset = 0;
+        for name in block.inputs_order.iter() {
+            if let Some(typ) = block.inputs.get(name){
+                vars.insert(name.to_string(), Param(param_offset, typ.clone()));
+            }
+        }
+        Stack {variables: vars}
+    }
+
+    pub fn stackframe_size(&self) -> usize {
+        use self::StackOffset::*;
+
+        let mut res = 0;
+        for (k, v) in self.variables.iter() {
+            if let &Local(_, ref typ) = v {
+                res += typ.size();
+            }
+        }
+        return res;
+    }
+
+    pub fn offset_of(&self, varname: &String) -> StackOffset {
+        if let Some(res) = self.variables.get(varname) {
+            return res.clone();
+        }
+        panic!("Variable {} not in stackframe !!!", varname);
+    }
+}
+
+#[derive(Debug,Clone,PartialEq)]
 pub struct Block {
+    inputs_order: Vec<String>,
     inputs: HashMap<String, Type>,
     locals: HashMap<String, Type>,
     renames: HashMap<String, String>,
-    code: Vec<OpCode>,
+    pub code: Vec<OpCode>,
 }
 
 impl Block {
     pub fn fresh_name(&mut self) -> String {
-        let res = format!("${}", self.locals.len() + self.inputs.len());
+        let res = format!("_$_{}", self.locals.len() + self.inputs.len());
         self.locals.insert(res.to_string(), Type::Int);
         res
     }
@@ -89,9 +144,44 @@ impl Block {
         }
     }
 
+    pub fn lookup_type(&self, lval: &ast::LValue) -> Type {
+        match lval {
+            &ast::LValue::Identifier(ref name) => {
+                if let Some(t) = self.inputs.get(name) {
+                    return t.clone();
+                }
+
+                if let Some(t) = self.locals.get(name) {
+                    return t.clone();
+                }
+                panic!("Unable to find type of `{}`", name);
+            },
+            &ast::LValue::ArrayItem(ref l, _) => {
+                self.lookup_type(l).inner()
+            }
+        }
+    }
+
+    pub fn get_stack(&self) -> Stack {
+        Stack::new(self)
+    }
+
+    pub fn get_labels(&self) -> Vec<usize> {
+        let mut res = vec![];
+        for op in self.code.iter() {
+            match op {
+                &OpCode::Goto(ref pos) => {res.push(*pos);},
+                &OpCode::If(_, ref pos) => {res.push(*pos);},
+                _ => {}
+            }
+        }
+        return res;
+    }
+
     fn sub(&self, body: &Vec<ast::Statement>) -> Block {
         let mut res = Block {
             inputs: self.locals.clone(),
+            inputs_order: vec![],
             locals: HashMap::new(),
             renames: HashMap::new(),
             code: vec![],
@@ -99,6 +189,7 @@ impl Block {
 
         for (k, v) in self.inputs.iter(){
             res.inputs.insert(k.to_string(), v.clone());
+            res.inputs_order.push(k.to_string());
         }
 
         for st in body.iter() {
@@ -123,26 +214,32 @@ impl Block {
         return res;
     }
 
-    fn sum_locals(&mut self, x: &String, y: &String) -> String {
+    fn internalize_addr(&mut self, base: &String, idx: &String, size: usize) -> String {
         use ast::Operator::*;
 
         let left = self.fresh_name();
-        let op = OpCode::BinOp(left.to_string(), Add,
-                               x.to_string(), y.to_string());
+        let op = OpCode::Mad(left.to_string(), idx.to_string(),
+                             size as usize, base.to_string());
         self.code.push(op);
         left
     }
 
-    fn array_offset(&mut self, arr: &ast::LValue, expr: &ast::Expression) -> (String, String) {
+    fn array_offset(&mut self, arr: &ast::LValue, expr: &ast::Expression) -> String {
         use ast::LValue::*;
 
-        let this_offset = self.internalize_expression(expr);
+        let idx = self.internalize_expression(expr);
+        let t = self.lookup_type(arr);
 
         match arr {
-            &Identifier(ref name) => (name.to_string(), this_offset),
+            &Identifier(ref name) => {
+                let base = self.fresh_name();
+                self.code.push(OpCode::Immediate(base.to_string(), 0));
+                self.internalize_addr(&base, &idx, t.size())
+            },
             &ArrayItem(ref l, ref e) => {
-                let (name, offset) = self.array_offset(l, e);
-                (name, self.sum_locals(&offset, &this_offset))
+                let base = self.array_offset(l, e);
+                let stride = t.size() / t.shape().first().unwrap();
+                self.internalize_addr(&base, &idx, stride)
             }
         }
     }
@@ -163,8 +260,9 @@ impl Block {
                         return self.latest_name(name);
                     },
                     ast::LValue::ArrayItem(ref l, ref e) => {
-                        let (name, offset) = self.array_offset(l, e);
-                        Load(left.to_string(), name, offset)
+                        let offset = self.array_offset(l, e);
+                        let name = l.name();
+                        Load(left.to_string(), name.to_string(), offset)
                     }
                 }
             },
@@ -173,6 +271,10 @@ impl Block {
                 let r = self.internalize_expression(r_expr);
                 BinOp(left.to_string(), op.clone(), l, r)
             },
+            &Ternary(ref cond_expr, ref true_expr, ref false_expr) => {
+                println!("\x1b[31;1mWAAAARNING: Ternary expression not internalized\x1b[0m");
+                NOP
+            },
             &Funcall(ref name, ref exprs) => {
                 let mut args = vec![];
                 for e in exprs.iter() {
@@ -180,7 +282,15 @@ impl Block {
                 }
                 Call(left.to_string(), name.to_string(), args)
             },
-            _ => NOP
+            &ArrayLen(ref lval) => {
+                let t = self.lookup_type(lval);
+                if let Some(s) = t.shape().last() {
+                    Immediate(left.to_string(), *s as i32)
+                } else {
+                    panic!("Unplausible shape for {}", lval);
+                }
+            },
+            &Ternary(_, _, _) => NOP,
         };
         self.code.push(op);
 
@@ -201,8 +311,9 @@ impl Block {
 
             },
             &ArrayItem(ref l, ref expr) => {
-                let (name, offset) = self.array_offset(l, expr);
-                let op = OpCode::Store(name, offset, rval);
+                let name = l.name();
+                let offset = self.array_offset(l, expr);
+                let op = OpCode::Store(name.to_string(), offset, rval);
                 self.code.push(op);
             }
         }
@@ -210,7 +321,8 @@ impl Block {
 
     fn internalize_condition(&mut self, expr: &ast::Expression,
                                         cons: &Vec<ast::Statement>,
-                                         alt: &Vec<ast::Statement>) {
+                                         alt: &Vec<ast::Statement>)
+    {
         let cond = self.internalize_expression(expr);
 
         let mut block_cons = self.sub(cons);
@@ -219,19 +331,24 @@ impl Block {
         let mut block_alt = self.sub(alt);
         self.locals.extend(block_alt.locals);
 
-        let dest_offset = 2 + self.code.len() + block_cons.code.len();
+        let ctrlop = if block_alt.code.len() > 0 { 2 } else { 1 };
+        let dest_offset = ctrlop + self.code.len() + block_cons.code.len();
         self.code.push(OpCode::If(cond, dest_offset));
         
         let after_if = self.code.len();
         self.code.extend(block_cons.code.iter().map(|ref x| x.reloc(after_if)));
-        self.code.push(OpCode::Goto(dest_offset + block_alt.code.len()));
+
+        if block_alt.code.len() > 0 {
+            self.code.push(OpCode::Goto(dest_offset + block_alt.code.len()));
+        }
 
         let after_else = self.code.len();
         self.code.extend(block_alt.code.iter().map(|ref x| x.reloc(after_else)));
     }
 
     fn internalize_loop(&mut self, expr: &ast::Expression,
-                                        body: &Vec<ast::Statement>) {
+                                        body: &Vec<ast::Statement>)
+    {
         let cond_offset = self.code.len();
         let cond = self.internalize_expression(expr);
 
@@ -276,6 +393,7 @@ impl Block {
 
     pub fn internalize(args: &Vec<(String,Type)>, body: &Vec<ast::Statement>) -> Block {
         let mut res = Block {
+            inputs_order: vec![],
             inputs: HashMap::new(),
             locals: HashMap::new(),
             renames: HashMap::new(),
@@ -284,6 +402,7 @@ impl Block {
 
         for &(ref name, ref typ) in args.iter() {
             res.inputs.insert(name.to_string(), typ.clone());
+            res.inputs_order.push(name.to_string());
         }
         for st in body.iter() {
             res.internalize_statement(st);
@@ -307,7 +426,7 @@ impl fmt::Display for Block {
 
 pub struct Program {
     globals: HashMap<String, Type>,
-    functions: HashMap<String, Block>,
+    pub functions: HashMap<String, Block>,
 }
 
 impl fmt::Display for Program {

@@ -5,4 +5,4 @@ TARGET=debug
 
 HERE=$(dirname $0)
 
-$HERE/tinypp $1 | $HERE/target/$TARGET/tinycc
+$HERE/tinypp $1 | $HERE/target/$TARGET/tinycc #| gcc -xassembler -c -o a.out -

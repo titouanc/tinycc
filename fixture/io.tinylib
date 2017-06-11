@@ -1,0 +1,17 @@
+int _printInt(int n){
+    if (n == 0){
+        print('0');
+    } else {
+        if (n >= 10){
+            _printInt(n/10);
+        }
+        print('0' + n%10);
+    }
+    return 1;
+}
+
+int printInt(int n){
+    _printInt(n);
+    print(10);
+    return 1;
+}

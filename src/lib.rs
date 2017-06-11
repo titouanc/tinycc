@@ -1,6 +1,7 @@
 pub mod ast;
 pub mod scope;
 pub mod itl;
+pub mod codegen;
 pub mod grammar; // synthesized by LALRPOP
 
 extern crate lalrpop_util;
@@ -31,6 +32,7 @@ pub fn parse(src: &str) -> ast::Program {
 
 pub fn compile(src: &str) {
     use ast::AST;
+    use codegen::ToAssembly;
 
     let tree = parse(src).const_fold();
     match scope::analyze(&tree){
@@ -44,7 +46,7 @@ pub fn compile(src: &str) {
     }
 
     let sequential = itl::Program::internalize(&tree);
-    println!("{}", sequential);
+    println!("{}", sequential.to_asm().join("\n"));
 }
 
 #[cfg(test)]

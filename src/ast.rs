@@ -52,6 +52,22 @@ pub enum LValue {
     ArrayItem(Box<LValue>, Expression),
 }
 
+impl LValue {
+    pub fn name(&self) -> &String {
+        match self {
+            &LValue::Identifier(ref n) => n,
+            &LValue::ArrayItem(ref l, _) => l.name(),
+        }
+    }
+
+    pub fn dim(&self) -> usize {
+        match self {
+            &LValue::Identifier(ref n) => 0,
+            &LValue::ArrayItem(ref l, _) => 1 + l.dim(),
+        }
+    }
+}
+
 impl AST for LValue {
     fn const_fold(&self) -> LValue {
         match self {
@@ -140,10 +156,28 @@ pub enum Type {
 
 impl Type {
     pub fn size(&self) -> usize {
-        return match *self {
+        match *self {
             Type::Char => 1,
             Type::Int  => 4,
             Type::ArrayOf(ref t, n) => n * t.size(),
+        }
+    }
+
+    pub fn inner(&self) -> Type {
+        match self {
+            &Type::ArrayOf(ref t, _) => (**t).clone(),
+            _ => panic!("Not a wrapped type")
+        }
+    }
+
+    pub fn shape(&self) -> Vec<usize> {
+        match self {
+            &Type::ArrayOf(ref l, n) => {
+                let mut res = l.shape();
+                res.push(n);
+                res
+            },
+            _ => vec![],
         }
     }
 

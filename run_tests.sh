@@ -24,3 +24,5 @@ for f in fixture/fail/*.tiny; do
     echo -e "\033[1m == Running $f (should fail) ==\033[0m"
     ./tinycc $f && FAIL || PASS
 done
+
+make brainfuck.prog

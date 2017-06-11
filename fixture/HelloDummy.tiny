@@ -1,0 +1,22 @@
+int lol(char v){
+    print(v);
+}
+
+int tiny(){
+    lol('H');
+    lol('e');
+    lol('l');
+    lol('l');
+    lol('o');
+    lol(' ');
+    lol('W');
+    lol('o');
+    lol('r');
+    lol('l');
+    lol('d');
+    lol(' ');
+    lol('!');
+    lol(10);
+
+    return 0;
+}

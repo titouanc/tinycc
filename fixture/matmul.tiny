@@ -16,6 +16,7 @@ int matmul(int[N][N] A, int[N][N] B, int[N][N] C){
             C[i][j] = x;
         })
     })
+    return 0;
 }
 
 int tiny(){

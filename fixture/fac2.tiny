@@ -1,3 +1,5 @@
+#include "io.tinylib"
+
 int _fac(int acc, int n){
     return (n <= 1) ? acc : _fac(acc*n, n-1);
 }
@@ -7,5 +9,7 @@ int fac(int n){
 }
 
 int tiny(){
-    print(fac(5));
+    int x;
+    x = fac(5);
+    printInt(x);
 }

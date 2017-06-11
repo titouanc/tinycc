@@ -12,7 +12,5 @@ int fac(int n){
 }
 
 int tiny(){
-    printInt(0);
-    printInt(42);
     printInt(fac(5));
 }

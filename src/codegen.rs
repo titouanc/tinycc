@@ -15,9 +15,10 @@ pub trait ToAssembly {
 fn var_addr(stack: &Stack, name: &String) -> String {
     use self::StackOffset::*;
 
+    let size = stack.stackframe_size() as i32;
     match stack.offset_of(name) {
         Param(pos, _) => format!("{}(%ebp)", pos + 8),
-        Local(pos, _) => format!("{}(%esp)", pos),
+        Local(pos, _) => format!("{}(%ebp)", (pos as i32)-size),
     }
 }
 
@@ -115,7 +116,7 @@ impl ToAssembly for Block {
                     res.push(format!("movl %eax, {}", var_addr(&stack, &dest)));
                 },
                 &Call(ref dest, ref func, ref args) => {
-                    for arg in args.iter() {
+                    for arg in args.iter().rev() {
                         res.push(format!("pushl {}", var_addr(&stack, arg)));
                     }
                     res.push(format!("call {}", func));

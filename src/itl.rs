@@ -91,6 +91,7 @@ impl Stack {
         for name in block.inputs_order.iter() {
             if let Some(typ) = block.inputs.get(name){
                 vars.insert(name.to_string(), Param(param_offset, typ.clone()));
+                param_offset += 4;
             }
         }
         Stack {variables: vars}

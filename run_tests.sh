@@ -25,4 +25,4 @@ for f in fixture/fail/*.tiny; do
     ./tinycc $f && FAIL || PASS
 done
 
-make brainfuck.prog
+make fac.prog && ./fac.prog

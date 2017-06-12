@@ -10,8 +10,6 @@ pub trait ToAssembly {
     }
 }
 
-
-
 fn var_addr(stack: &Stack, name: &String) -> String {
     use self::StackOffset::*;
 
@@ -20,6 +18,10 @@ fn var_addr(stack: &Stack, name: &String) -> String {
         Param(pos, _) => format!("{}(%ebp)", pos + 8),
         Local(pos, _) => format!("{}(%ebp)", (pos as i32)-size),
     }
+}
+
+fn var_size(stack: &Stack, name: &String) -> usize {
+    stack.offset_of(name).size()
 }
 
 fn comparison(res: &mut Vec<String>, opcode: &str, operand: &String) {
@@ -134,6 +136,30 @@ impl ToAssembly for Block {
                 &If(ref cond, ref jmp) => {
                     res.push(format!("cmpl $1, {}", var_addr(&stack, cond)));
                     res.push(format!("jne _{}_{}", label_prefix, jmp));
+                },
+                &Load(ref dest, ref base, ref offset) => {
+                    let s = var_size(&stack, base);
+                    res.push(format!("leal {}, %eax", var_addr(&stack, base)));
+                    res.push(format!("addl {}, %eax", var_addr(&stack, offset)));
+                    if s == 4 {
+                        res.push(format!("movl (%eax), %eax"));
+                        res.push(format!("movl %eax, {}", var_addr(&stack, dest)));
+                    } else {
+                        res.push(format!("movb (%eax), %al"));
+                        res.push(format!("movb %al, {}", var_addr(&stack, dest)));
+                    }
+                },
+                &Store(ref base, ref offset, ref val) => {
+                    let s = var_size(&stack, base);
+                    res.push(format!("leal {}, %eax", var_addr(&stack, base)));
+                    res.push(format!("addl {}, %eax", var_addr(&stack, offset)));
+                    if s == 4 {
+                        res.push(format!("movl {}, %edx", var_addr(&stack, val)));
+                        res.push(format!("movl %eax, (%eax)"));
+                    } else {
+                        res.push(format!("movb {}, %dl", var_addr(&stack, val)));
+                        res.push(format!("movb %dl, (%eax)"));
+                    }
                 },
                 _ => {}
             }

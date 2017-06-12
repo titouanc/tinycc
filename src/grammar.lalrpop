@@ -72,6 +72,31 @@ RestrictedStatement<I>: ast::Statement = {
     <v:VarDecl> ";" => ast::Statement::LocalDecl(v.0, v.1),
     <e:Expr> ";" => ast::Statement::RValue(e),
     <l:LValue> "=" <r:Expr> ";" =>  ast::Statement::Assign(l, r),
+    <l:LValue> "+=" <r:Expr> ";" => ast::Statement::Assign(l.clone(),
+        ast::Expression::InfixOp(ast::Operator::Add,
+                                 Box::new(ast::Expression::LValue(Box::new(l.clone()))),
+                                 Box::new(r))
+    ),
+    <l:LValue> "-=" <r:Expr> ";" => ast::Statement::Assign(l.clone(),
+        ast::Expression::InfixOp(ast::Operator::Sub,
+                                 Box::new(ast::Expression::LValue(Box::new(l.clone()))),
+                                 Box::new(r))
+    ),
+    <l:LValue> "*=" <r:Expr> ";" => ast::Statement::Assign(l.clone(),
+        ast::Expression::InfixOp(ast::Operator::Mul,
+                                 Box::new(ast::Expression::LValue(Box::new(l.clone()))),
+                                 Box::new(r))
+    ),
+    <l:LValue> "/=" <r:Expr> ";" => ast::Statement::Assign(l.clone(),
+        ast::Expression::InfixOp(ast::Operator::Div,
+                                 Box::new(ast::Expression::LValue(Box::new(l.clone()))),
+                                 Box::new(r))
+    ),
+    <l:LValue> "%=" <r:Expr> ";" => ast::Statement::Assign(l.clone(),
+        ast::Expression::InfixOp(ast::Operator::Mod,
+                                 Box::new(ast::Expression::LValue(Box::new(l.clone()))),
+                                 Box::new(r))
+    ),
     <l:LValue> "++" ";" => ast::Statement::Assign(l.clone(),
         ast::Expression::InfixOp(ast::Operator::Add,
                                  Box::new(ast::Expression::LValue(Box::new(l.clone()))),

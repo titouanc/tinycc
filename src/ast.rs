@@ -163,6 +163,13 @@ impl Type {
         }
     }
 
+    pub fn base(&self) -> Type {
+        match *self {
+            Type::ArrayOf(ref t, _) => t.base(),
+            _ => self.clone(),
+        }
+    }
+
     pub fn inner(&self) -> Type {
         match self {
             &Type::ArrayOf(ref t, _) => (**t).clone(),

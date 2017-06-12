@@ -11,7 +11,24 @@ int _printInt(int n){
 }
 
 int printInt(int n){
-    _printInt(n);
+    if (n < 0){
+        print('-');
+        _printInt(0-n);
+    } else {
+        _printInt(n);
+    }
     print(10);
     return 1;
+}
+
+int readInt(){
+    int r;
+    r = 0;
+    char c;
+    c = read();
+    while (c != 10){
+        r *= 10;
+        r += (c - '0');
+    }
+    return r;
 }

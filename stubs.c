@@ -3,7 +3,9 @@
 extern int tiny();
 
 int print(char c){
-    return printf("%c", c);
+    int r = putchar(c);
+    fflush(stdout);
+    return r;
 }
 
 int read(){
@@ -12,5 +14,6 @@ int read(){
 
 int main(int argc, const char **argv)
 {
-    return tiny();
+    tiny();
+    return 0;
 }

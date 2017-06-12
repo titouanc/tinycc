@@ -71,6 +71,15 @@ pub enum StackOffset {
     Local(usize, Type),
 }
 
+impl StackOffset {
+    pub fn size(&self) -> usize {
+        match self {
+            &StackOffset::Param(_, ref t) => t.base().size(),
+            &StackOffset::Local(_, ref t) => t.base().size(),
+        }
+    }
+}
+
 #[derive(Debug,Clone,PartialEq)]
 pub struct Stack {
     variables: HashMap<String,StackOffset>

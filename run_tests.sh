@@ -25,4 +25,6 @@ for f in fixture/fail/*.tiny; do
     ./tinycc $f && FAIL || PASS
 done
 
-make fac.prog && ./fac.prog
+for p in fac HelloDummy HelloWorld; do
+    make $p.prog && ./$p.prog
+done

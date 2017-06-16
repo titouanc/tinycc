@@ -1,7 +1,7 @@
 pub mod ast;
 pub mod scope;
 pub mod itl;
-pub mod codegen;
+// pub mod codegen;
 pub mod grammar; // synthesized by LALRPOP
 
 extern crate lalrpop_util;
@@ -32,7 +32,7 @@ pub fn parse(src: &str) -> ast::Program {
 
 pub fn compile(src: &str) {
     use ast::AST;
-    use codegen::ToAssembly;
+    // use codegen::ToAssembly;
 
     let tree = parse(src).const_fold();
     match scope::analyze(&tree){
@@ -46,7 +46,8 @@ pub fn compile(src: &str) {
     }
 
     let sequential = itl::Program::internalize(&tree);
-    println!("{}", sequential.to_asm().join("\n"));
+    println!("{}", sequential);
+    // println!("{}", sequential.to_asm().join("\n"));
 }
 
 #[cfg(test)]
@@ -187,5 +188,13 @@ mod test_parser {
         assert!(t2.accepts(&t1));
         assert!(! t1.accepts(&t3));
         assert!(! t3.accepts(&t1));
+    }
+
+    #[test]
+    fn type_shape(){
+        use ast::Type::*;
+        let t1 = ArrayOf(Box::new(ArrayOf(Box::new(Int), 42)), 13);
+        let shape = vec![13, 42];
+        assert!(t1.shape() == shape);
     }
 }

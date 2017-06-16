@@ -32,7 +32,7 @@ impl AST for Declaration {
     }
 }
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Clone, Copy)]
 pub enum Operator {
     Add,
     Sub,
@@ -64,6 +64,13 @@ impl LValue {
         match self {
             &LValue::Identifier(ref n) => 0,
             &LValue::ArrayItem(ref l, _) => 1 + l.dim(),
+        }
+    }
+
+    pub fn with_type(&self, typ: &Type) -> Type {
+        match self {
+            &LValue::ArrayItem(ref l, _) => typ.inner(),
+            _ => typ.clone(),
         }
     }
 }
@@ -163,6 +170,13 @@ impl Type {
         }
     }
 
+    pub fn length(&self) -> usize {
+        match self {
+            &Type::ArrayOf(_, n) => n,
+            _ => 0,
+        }
+    }
+
     pub fn base(&self) -> Type {
         match *self {
             Type::ArrayOf(ref t, _) => t.base(),
@@ -180,8 +194,8 @@ impl Type {
     pub fn shape(&self) -> Vec<usize> {
         match self {
             &Type::ArrayOf(ref l, n) => {
-                let mut res = l.shape();
-                res.push(n);
+                let mut res = vec![n];
+                res.append(&mut l.shape());
                 res
             },
             _ => vec![],

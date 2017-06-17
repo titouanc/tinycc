@@ -1,14 +1,16 @@
 #define for(init, cond, incr, body) init; while (cond) {if (1) body incr;}
 
+#define M 20
 #define N 10
+#define O 42
 
-int matmul(int[N][N] A, int[N][N] B, int[N][N] C){
+int matmul(int[M][N] A, int[N][O] B, int[M][O] C){
     int x;
     int i;
     int j;
     int k;
-    for(i=0, i<lengthOf(A), i = i+1, {
-        for(j=0, j<lengthOf(A[i]), j = j+1, {
+    for(i=0, i<lengthOf(C), i = i+1, {
+        for(j=0, j<lengthOf(C[i]), j = j+1, {
             x = 0;
             for(k=0, k<N, k = k+1, {
                 x = x + A[i][k] * B[k][j];

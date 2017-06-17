@@ -112,6 +112,28 @@ impl OpCode {
             _ => self.clone(),
         }
     }
+
+    pub fn lval(&self) -> LVal {
+        use self::OpCode::*;
+        match self {
+            &Assign(ref l, _) => l.clone(),
+            &BinOp(ref l, _, _, _) => l.clone(),
+            &Call(ref l, _, _) => l.clone(),
+            _ => LVal::Discard,
+        }
+    }
+
+    pub fn with_lval(&self, lval: LVal) -> OpCode {
+        use self::OpCode::*;
+        match self {
+            &Assign(_, ref x) => Assign(lval, x.clone()),
+            &BinOp(_, ref op, ref l, ref r) =>
+                BinOp(lval, op.clone(), l.clone(), r.clone()),
+            &Call(_, ref name, ref args) =>
+                Call(lval, name.to_string(), args.clone()),
+            _ => self.clone(),
+        }
+    }
 }
 
 impl fmt::Display for OpCode {
@@ -123,7 +145,7 @@ impl fmt::Display for OpCode {
             Assign(ref l, ref r) => write!(f, "{}{}", l, r),
             BinOp(ref dest, ref op, ref l, ref r) => write!(f, "{}{} {} {}", dest, l, op, r),
             Goto(ref pos) => write!(f, "\x1b[1;36mGOTO\x1b[0m \x1b[33m{}\x1b[0m", pos),
-            If(ref cond, ref pos) => write!(f, "\x1b[1;36mIF\x1b[0m {} ELSE \x1b[1;36mGOTO\x1b[0m \x1b[33m{}\x1b[0m", cond, pos),
+            If(ref cond, ref pos) => write!(f, "\x1b[1;36mIF\x1b[0m {} \x1b[1;36mELSE GOTO\x1b[0m \x1b[33m{}\x1b[0m", cond, pos),
             Call(ref dest, ref name, ref args) => write!(f, "{}\x1b[1;32mCALL\x1b[0m {} {:?}", dest, name, args),
             Return(ref val) => write!(f, "\x1b[1;32mRETURN\x1b[0m {}", val),
         }
@@ -145,11 +167,7 @@ pub struct Block {
 
 impl Block {
     fn type_for_name(&self, name: &String) -> Type {
-        if let Some(&(_, ref t)) = self.frame.get(name) {
-            t.clone()
-        } else {
-            panic!("Variable `{}` not found", name);
-        }
+        self.lookup(name).1
     }
 
     fn tmp_var(&mut self) -> LVal {
@@ -341,7 +359,119 @@ impl Block {
         for &(ref name, ref typ) in args.iter() {
             res.frame.insert(name.to_string(), (AddressSpace::Param, typ.clone()));
         }
-        res._internalize(body)
+        res._internalize(body).simplify()
+    }
+
+    fn eliminate_dead_branchs(&mut self) {
+        use self::RVal::*;
+        use self::OpCode::*;
+
+        for step in 0.. {
+            let mut found = false;
+            let mut dead_branch_range = 0..0;
+            let mut condition_pos = 0;
+
+            for (i, op) in self.code.iter().enumerate() {
+                if let &If(Immediate(ref cond), ref jmp) = op {
+                    // NOP constant condition
+                    condition_pos = i;
+
+                    // Determine dead branch start and end
+                    dead_branch_range = if *cond == 0 {
+                        i..*jmp
+                    } else {
+                        if let Goto(ref else_end) = self.code[*jmp - 1] {
+                            *jmp..*else_end
+                        } else {
+                            panic!("Expected GOTO at end of branch");
+                        }
+                    };
+
+                    found = true;
+                    break;
+                }
+            }
+
+            if ! found {
+                break
+            } else {
+                self.code[condition_pos] = NOP;
+                for i in dead_branch_range {
+                    self.code[i] = NOP;
+                }
+                // self.code[dead_branch_range] = NOP;
+            }
+        }
+    }
+
+    fn eliminate_double_copy(&mut self) {
+        use self::OpCode::*;
+
+        let mut prev_op = NOP;
+        let mut new_code = vec![];
+        let len = self.code.len();
+
+        for i in 0..len {
+            let op = self.code[i].clone();
+            if let Assign(ref l, ref r) = op {
+                let prev_lval = prev_op.lval();
+                if prev_lval != LVal::Discard && &prev_lval.to_rval() == r {
+                    new_code.push(prev_op.with_lval(l.clone()));
+                    prev_op = NOP;
+                    continue;
+                }
+            }
+            if i > 0 {
+                new_code.push(prev_op);
+            }
+            prev_op = op;
+        }
+
+        if len > 0 {
+            new_code.push(prev_op);
+        }
+        self.code = new_code;
+    }
+
+    fn eliminate_goto_next(&mut self) {
+        use self::OpCode::*;
+        let mut new_code = vec![];
+
+        for (i, instr) in self.code.iter().enumerate() {
+            if let &Goto(ref jmp) = instr {
+                if *jmp == i + 1 {
+                    new_code.push(NOP);
+                    continue;
+                }
+            }
+            new_code.push(instr.clone());
+        }
+        self.code = new_code;
+    }
+
+    pub fn simplify(&self) -> Block {
+        let mut res = self.clone();
+        res.eliminate_dead_branchs();
+        res.eliminate_double_copy();
+        res.eliminate_goto_next();
+        return res;
+    }
+
+    pub fn lookup(&self, name: &String) -> (AddressSpace,Type) {
+        if let Some(x) = self.frame.get(name) {
+            x.clone()
+        } else {
+            panic!("Variable `{}` not found", name)
+        }
+    }
+}
+
+impl IntoIterator for Block {
+    type Item = OpCode;
+    type IntoIter = ::std::vec::IntoIter<OpCode>;
+
+    fn into_iter(self) -> ::std::vec::IntoIter<OpCode> {
+        self.code.into_iter()
     }
 }
 
@@ -354,7 +484,7 @@ impl fmt::Display for Block {
         }
         write!(f, "): {}\n", self.ret);
         for (i, opcode) in self.code.iter().enumerate() {
-            write!(f, "  \x1b[33m{:3}\x1b[0m \x1b[30m|\x1b[0m {}\n", i, opcode);
+            write!(f, "  \x1b[33m{:3}\x1b[0m  {}\n", i, opcode);
         }
         write!(f, "\n")
     }
@@ -362,8 +492,8 @@ impl fmt::Display for Block {
 
 
 pub struct Program {
-    functions: HashMap<String,Block>,
-    globals: HashMap<String,Type>,
+    pub functions: HashMap<String,Block>,
+    pub globals: HashMap<String,Type>,
 }
 
 impl Program {
@@ -376,7 +506,7 @@ impl Program {
             match decl {
                 &Func(ref name, ref ret, ref args, ref body) => {
                     let blk = Block::internalize(ret, args, body);
-                    res.functions.insert(name.to_string(), blk);
+                    res.functions.insert(name.to_string(), blk.simplify());
                 },
                 &Var(ref name, ref typ) => {
                     res.globals.insert(name.to_string(), typ.clone());

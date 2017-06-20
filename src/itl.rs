@@ -13,6 +13,15 @@ pub enum Direct {
     Variable(String),
 }
 
+impl Direct {
+    pub fn to_rval(&self) -> RVal {
+        match *self {
+            Direct::Immediate(ref val) => RVal::Immediate(*val),
+            Direct::Variable(ref val) => RVal::Variable(val.to_string()),
+        }
+    }
+}
+
 impl fmt::Display for Direct {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         use self::Direct::*;
@@ -157,9 +166,9 @@ pub enum AddressSpace {Local, Param, Global}
 
 #[derive(Debug,PartialEq,Clone)]
 pub struct Block {
-    params: Vec<(String,Type)>,
-    frame: HashMap<String,(AddressSpace,Type)>,
-    code: Vec<OpCode>,
+    pub params: Vec<(String,Type)>,
+    pub frame: HashMap<String,(AddressSpace,Type)>,
+    pub code: Vec<OpCode>,
     ret: Type,
     intermediate: usize,
     max_intermediate: usize,
@@ -347,7 +356,10 @@ impl Block {
         self
     }
 
-    pub fn internalize(ret: &Type, args: &Vec<(String, Type)>, body: &Vec<ast::Statement>) -> Block {
+    pub fn internalize(ret: &Type, args: &Vec<(String, Type)>,
+                       body: &Vec<ast::Statement>,
+                       globals: &HashMap<String,Type>) -> Block
+    {
         let mut res = Block {
             params: args.clone(),
             code: vec![],
@@ -356,6 +368,9 @@ impl Block {
             intermediate: 0,
             max_intermediate: 0
         };
+        for (name, typ) in globals.iter() {
+            res.frame.insert(name.to_string(), (AddressSpace::Global, typ.clone()));
+        }
         for &(ref name, ref typ) in args.iter() {
             res.frame.insert(name.to_string(), (AddressSpace::Param, typ.clone()));
         }
@@ -464,14 +479,19 @@ impl Block {
             panic!("Variable `{}` not found", name)
         }
     }
-}
 
-impl IntoIterator for Block {
-    type Item = OpCode;
-    type IntoIter = ::std::vec::IntoIter<OpCode>;
+    pub fn get_labels(&self) -> Vec<usize> {
+        let mut res = vec![];
 
-    fn into_iter(self) -> ::std::vec::IntoIter<OpCode> {
-        self.code.into_iter()
+        for op in self.code.iter() {
+            match op {
+                &OpCode::Goto(ref jmp) => {res.push(*jmp);}
+                &OpCode::If(_, ref jmp) => {res.push(*jmp);}
+                _ => {}
+            }
+        }
+
+        return res;
     }
 }
 
@@ -505,7 +525,7 @@ impl Program {
         for decl in prog.iter() {
             match decl {
                 &Func(ref name, ref ret, ref args, ref body) => {
-                    let blk = Block::internalize(ret, args, body);
+                    let blk = Block::internalize(ret, args, body, &res.globals);
                     res.functions.insert(name.to_string(), blk.simplify());
                 },
                 &Var(ref name, ref typ) => {

@@ -1,0 +1,27 @@
+#include "io.tinylib"
+
+char charvar;
+int intvar;
+int[2] tablevar;
+
+int init(){
+    charvar = '*';
+    intvar = 42;
+    tablevar[0] = 4;
+    tablevar[1] = 2;
+    return 0;
+}
+
+int showtime(){
+    print(charvar);
+    print(intvar);
+    printInt(tablevar[0]);
+    printInt(tablevar[1]);
+    return 0;
+}
+
+int tiny(){
+    init();
+    showtime();
+    return 0;
+}

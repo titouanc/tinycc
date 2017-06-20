@@ -4,6 +4,7 @@ pub mod itl;
 pub mod codegen;
 pub mod grammar; // synthesized by LALRPOP
 
+use std::io::Write;
 extern crate lalrpop_util;
 use lalrpop_util::ParseError::*;
 
@@ -45,8 +46,8 @@ pub fn compile(src: &str) {
     }
 
     let sequential = itl::Program::internalize(&tree);
-    println!("{}", sequential);
-    println!("{}", codegen::assemble(&sequential));
+    write!(&mut std::io::stderr(), "{}", sequential);
+    println!("{}", codegen::Assembler::assemble(&sequential));
 }
 
 #[cfg(test)]

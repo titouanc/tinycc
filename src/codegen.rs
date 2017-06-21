@@ -190,7 +190,9 @@ impl Assembler {
                     let l = self.lookup_lval(dest);
                     self.code.push(format!("movl %eax, {}", l));
                 }
-                self.code.push(format!("addl ${}, %esp", 4 * args.len()));
+                if args.len() > 0 {
+                    self.code.push(format!("addl ${}, %esp", 4 * args.len()));
+                }
             },
             &Return(ref val) => {
                 let retval = self.lookup_rval(val, false);

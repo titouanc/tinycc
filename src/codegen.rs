@@ -29,6 +29,7 @@ impl Assembler {
                 self.locals.insert(name.to_string(), local_off);
                 local_off += typ.size();
             }
+            self.types.insert(name.to_string(), typ.clone());
         }
         self.stacksize = local_off;
     }
@@ -65,11 +66,19 @@ impl Assembler {
 
         let res = match rval {
             &Immediate(ref x) => format!("${}", x),
-            &Variable(ref name) => self.lookup_variable(name),
-            &Indirect(ref name, ref off) => self.lookup_indirect(name, off)
+            &Indirect(ref name, ref off) => self.lookup_indirect(name, off),
+            &Variable(ref name) => {
+                let r = self.lookup_variable(name);
+                if let Some(&Type::ArrayOf(_, _)) = self.types.get(name) {
+                    self.code.push(format!("leal {}, %eax", r));
+                    "%eax".to_string()
+                } else {
+                    r
+                }
+            }
         };
 
-        if need_register {
+        if need_register && &res[0..1] != "%" {
             self.code.push(format!("movl {}, %eax", res));
             "%eax".to_string()
         } else {

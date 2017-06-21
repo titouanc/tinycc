@@ -48,7 +48,7 @@ impl Assembler {
         use itl::Direct::*;
 
         let var_ref = self.lookup_variable(name);
-        self.code.push(format!("movl {}, %esi", var_ref));
+        self.code.push(format!("leal {}, %esi", var_ref));
 
         match off {
             &Immediate(ref idx) => format!("{}(%esi)", idx),

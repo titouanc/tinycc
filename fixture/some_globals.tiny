@@ -14,7 +14,9 @@ int init(){
 
 int showtime(){
     print(charvar);
+    print(10);
     print(intvar);
+    print(10);
     printInt(tablevar[0]);
     printInt(tablevar[1]);
     return 0;

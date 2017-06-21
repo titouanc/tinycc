@@ -13,7 +13,9 @@ int fac(int n){
 
 int tiny(){
     int n;
+    printInt(42);
     n = readInt();
     printInt(n);
     printInt(fac(n));
+    return 0;
 }

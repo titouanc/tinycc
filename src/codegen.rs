@@ -1,86 +1,7 @@
 use ::itl::*;
 use ::itl::OpCode::*;
 use ::ast::Type;
-use std::fmt;
 use std::collections::HashMap;
-
-struct Addressing {
-    stacksize: usize,
-    params: HashMap<String,usize>,
-    locals: HashMap<String,usize>,
-    types: HashMap<String,Type>,
-}
-
-impl Addressing {
-    pub fn new(frame: &HashMap<String,(AddressSpace,Type)>) -> Addressing {
-        let mut params = HashMap::new();
-        let mut locals = HashMap::new();
-        let mut types = HashMap::new();
-
-        let mut local_off = 0;
-        let mut param_off = 0;
-
-        for (name, &(ref addr, ref typ)) in frame.iter() {
-            match addr {
-                &AddressSpace::Local => {
-                    locals.insert(name.to_string(), local_off);
-                    local_off += typ.size();
-                },
-                &AddressSpace::Param => {
-                    params.insert(name.to_string(), param_off);
-                    param_off += typ.size();
-                }
-                _ => {},
-            }
-            types.insert(name.to_string(), typ.clone());
-        }
-
-        Addressing {
-            params: params,
-            locals: locals,
-            types: types,
-            stacksize: local_off,
-        }
-    }
-
-    fn lookup_name(&self, name: &String) -> String {
-        if let Some(x) = self.params.get(name) {
-            return format!("{}(%ebp)", x + 8);
-        } else if let Some(x) = self.locals.get(name) {
-            let off = (*x as i32) - (self.stacksize as i32);
-            return format!("{}(%ebp)", off);
-        }
-        return format!("{}", name);
-    }
-
-    fn lookup_type(&self, name: &String) -> Type {
-        self.types.get(name).unwrap().clone()
-    }
-
-    pub fn resolve_lval(&self, lval: &LVal) -> String {
-        use itl::LVal::*;
-
-        match lval {
-            &Discard => format!(""),
-            _ => self.resolve_rval(&lval.to_rval())
-        }
-    }
-
-    pub fn resolve_rval(&self, rval: &RVal) -> String {
-        use itl::RVal::*;
-
-        match rval {
-            &Immediate(ref x) => format!("${}", x),
-            &Variable(ref name) => self.lookup_name(name),
-            &Indirect(ref name, ref off) =>
-                format!("{}({})", self.resolve_direct(off), self.lookup_name(name)),
-        }
-    }
-
-    pub fn resolve_direct(&self, direct: &Direct) -> String {
-        self.resolve_rval(&direct.to_rval())
-    }
-}
 
 pub struct Assembler {
     code: Vec<String>,
@@ -123,44 +44,36 @@ impl Assembler {
         }
     }
 
-    fn lookup_indirect(&mut self, name: &String, off: &Direct, need_register: bool) -> String {
+    fn lookup_indirect(&mut self, name: &String, off: &Direct) -> String {
         use itl::Direct::*;
 
         let var_ref = self.lookup_variable(name);
         self.code.push(format!("movl {}, %esi", var_ref));
 
-        let mem = match off {
+        match off {
             &Immediate(ref idx) => format!("{}(%esi)", idx),
             &Variable(ref name) => {
                 let idx = self.lookup_variable(name);
                 self.code.push(format!("movl {}, %ecx", idx));
                 format!("(%esi,%ecx)")
             }
-        };
-        if need_register {
-            format!("movl {}, %eax", mem)
-        } else {
-            mem
         }
     }
 
     fn lookup_rval(&mut self, rval: &RVal, need_register: bool) -> String {
         use itl::RVal::*;
 
-        match rval {
+        let res = match rval {
             &Immediate(ref x) => format!("${}", x),
-            &Variable(ref name) => {
-                let original = self.lookup_variable(name);
-                if need_register {
-                    self.code.push(format!("movl {}, %eax", original));
-                    format!("%eax")
-                } else {
-                    original
-                }
-            },
-            &Indirect(ref name, ref off) => {
-                self.lookup_indirect(name, off, need_register)
-            }
+            &Variable(ref name) => self.lookup_variable(name),
+            &Indirect(ref name, ref off) => self.lookup_indirect(name, off)
+        };
+
+        if need_register {
+            self.code.push(format!("movl {}, %eax", res));
+            "%eax".to_string()
+        } else {
+            res
         }
     }
 
@@ -172,11 +85,18 @@ impl Assembler {
                 self.lookup_variable(name)
             },
             &Indirect(ref name, ref off) => {
-                self.lookup_indirect(name, off, false)
+                self.lookup_indirect(name, off)
             }
             _ => panic!("Cannot lookup Discard lvalue")
         }
     }
+
+    fn comparison_op(&mut self, res_op: &str, left: String, right: String) -> String {
+        self.code.push(format!("cmpl {}, {}", right, left));
+        self.code.push(format!("movl $0, %eax"));
+        self.code.push(format!("{} %al", res_op));
+        "%eax".to_string()
+    } 
 
     fn assemble_opcode(&mut self, func_name: &String, op: &OpCode) {
         match op {
@@ -185,7 +105,73 @@ impl Assembler {
                 let l = self.lookup_lval(dest);
                 self.code.push(format!("movl {}, {}", r, l));
             },
-            &BinOp(ref dest, ref op, ref l, ref r) => {},
+            &BinOp(ref dest, ref op, ref l, ref r) => {
+                use ast::Operator::*;
+                let left = self.lookup_rval(l, true);
+                let right = self.lookup_rval(r, false);
+                let res_reg = match *op {
+                    Add => {
+                        self.code.push(format!("addl {}, {}", right, left));
+                        left
+                    },
+                    Sub => {
+                        self.code.push(format!("subl {}, {}", right, left));
+                        left
+                    },
+                    Mul => {
+                        if let &RVal::Immediate(_) = r {
+                            self.code.push(format!("movl {}, %ecx", right));
+                            self.code.push(format!("imull %ecx"));
+                        } else {
+                            self.code.push(format!("imull {}", right));
+                        }
+                        left
+                    },
+                    Div => {
+                        self.code.push(format!("movl $0, %edx"));
+                        if let &RVal::Immediate(_) = r {
+                            self.code.push(format!("movl {}, %ecx", right));
+                            self.code.push(format!("idivl %ecx"));
+                        } else {
+                            self.code.push(format!("idivl {}", right));
+                        }
+                        left
+                    },
+                    Mod => {
+                        self.code.push(format!("movl $0, %edx"));
+                        if let &RVal::Immediate(_) = r {
+                            self.code.push(format!("movl {}, %ecx", right));
+                            self.code.push(format!("idivl %ecx"));
+                        } else {
+                            self.code.push(format!("idivl {}", right));
+                        }
+                        "%edx".to_string()
+                    },
+                    Eql => self.comparison_op("sete", left, right),
+                    NotEql => self.comparison_op("setne", left, right),
+                    Lt => self.comparison_op("setb", left, right),
+                    Lte => self.comparison_op("setbe", left, right),
+                    Gt => self.comparison_op("seta", left, right),
+                    Gte => self.comparison_op("setae", left, right),
+                    BitAnd | And => {
+                        self.code.push(format!("andl {}, {}", right, left));
+                        left
+                    },
+                    BitOr | Or => {
+                        self.code.push(format!("orl {}, {}", right, left));
+                        left
+                    },
+                    BitXor => {
+                        self.code.push(format!("xorl {}, {}", right, left));
+                        left
+                    }
+                    _ => {panic!("UNKNOWN OP");}
+                };
+                if dest != &LVal::Discard {
+                    let dest_val = self.lookup_lval(dest);
+                    self.code.push(format!("movl {}, {}", res_reg, dest_val));
+                }
+            },
             &Goto(ref jmp) => {
                 self.code.push(format!("jmp __{}_{}", func_name, jmp));
             },
@@ -218,7 +204,9 @@ impl Assembler {
 
     fn assemble_block(&mut self, name: &String, blk: &Block) {
         let labels = blk.get_labels();
-        self.code.push(format!(".global {}", name));
+        if name == "tiny" {
+            self.code.push(format!(".global tiny"));
+        }
         self.code.push(format!("{}:", name));
         self.code.push(format!("enter ${}, $0", self.stacksize));
 
@@ -232,6 +220,7 @@ impl Assembler {
         self.code.push(format!("__{}_{}:", name, blk.code.len()));
         self.code.push(format!("leave"));
         self.code.push(format!("ret"));
+        self.code.push(format!(".type {}, @function", name));
     }
 
     pub fn new() -> Assembler {
@@ -276,6 +265,8 @@ impl Assembler {
             res.append(&mut block_ass.code);
             res.push("".to_string());
         }
+        res.push(".ident \"TinyCC\"".to_string());
+
         return res.join("\n");
     }
 }

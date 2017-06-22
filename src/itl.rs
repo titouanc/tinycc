@@ -299,12 +299,12 @@ impl Block {
                 let dest = self.tmp_var();
                 let l = self.internalize_expression(left);
                 let r = self.internalize_expression(right);
-                let op = OpCode::BinOp(dest.clone(), *op, l, r);
-                self.code.push(op);
+                let opcode = OpCode::BinOp(dest.clone(), *op, l, r);
+                self.code.push(opcode);
                 dest.to_rval()
             },
             &Ternary(ref cond, ref if_true, ref if_false) => {
-                Immediate(42)
+                self.internalize_ternary(cond, if_true, if_false)
             }
         }
     }
@@ -319,6 +319,32 @@ impl Block {
                 self.frame.insert(name.to_string(), qual.clone());
             }
         }
+    }
+
+    fn internalize_ternary(&mut self, if_cond: &ast::Expression,
+                                      if_true: &ast::Expression,
+                                      if_false: &ast::Expression) -> RVal
+    {
+        let res = self.tmp_var();
+        let cond = self.internalize_expression(if_cond);
+        
+        let mut sub_true = self.sub();
+        let expr_true = sub_true.internalize_expression(if_true);
+        sub_true.code.push(OpCode::Assign(res.clone(), expr_true));
+
+        let mut sub_false = self.sub();
+        let expr_false = sub_false.internalize_expression(if_false);
+        sub_false.code.push(OpCode::Assign(res.clone(), expr_false));
+        
+        let after_true = 2 + self.code.len() + sub_true.code.len();
+        self.code.push(OpCode::If(cond, after_true));
+        self.merge(&sub_true);
+
+        let after_false = 1 + self.code.len() + sub_false.code.len();
+        self.code.push(OpCode::Goto(after_false));
+        self.merge(&sub_false);
+
+        res.to_rval()
     }
 
     fn internalize_condition(&mut self, if_cond: &ast::Expression,

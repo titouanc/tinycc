@@ -52,7 +52,11 @@ impl Assembler {
         let var_ref = self.lookup_variable(name);
         let typ = self.types.get(name).unwrap();
         let size = typ.base().size() as i32;
-        self.code.push(format!("leal {}, %esi", var_ref));
+        if self.params.contains_key(name){
+            self.code.push(format!("movl {}, %esi", var_ref));
+        } else {
+            self.code.push(format!("leal {}, %esi", var_ref));
+        }
 
         match off {
             &Immediate(ref idx) => format!("{}(%esi)", idx * size),

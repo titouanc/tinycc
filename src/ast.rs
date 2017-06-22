@@ -213,6 +213,15 @@ impl Type {
             _ => true,
         }
     }
+
+    pub fn from_shape(base: Type, shape: Vec<usize>) -> Type {
+        if shape.len() == 0 {
+            base
+        } else {
+            let inner = Type::from_shape(base, shape[1..].to_vec());
+            Type::ArrayOf(Box::new(inner), shape[0])
+        }
+    }
 }
 
 ////////////// Formatting //////////////

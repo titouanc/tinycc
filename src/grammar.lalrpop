@@ -22,12 +22,19 @@ Char: char = {
 };
 
 // A (dimensional) type name
-Type: ast::Type = {
+PrimType: ast::Type = {
     "int" => ast::Type::Int,
     "char" => ast::Type::Char,
-    <t:Type> "[" <size:Number> "]" =>
-        ast::Type::ArrayOf(Box::new(t), size as usize),
 };
+
+Type: ast::Type = {
+    PrimType,
+    <t:PrimType> <shape:TypeShape> =>
+        ast::Type::from_shape(t, shape),
+};
+
+TypeShape = <TypeShapeDim+>;
+TypeShapeDim: usize = {"[" <size:Number> "]" => size as usize};
 
 // Macro for a Comma Separated List
 Csl<T>: Vec<T> = {

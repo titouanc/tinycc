@@ -1,3 +1,7 @@
 language: rust
 cache: cargo
 script: ./run_tests.sh
+addons:
+  apt:
+    packages:
+      - libc6-dev-i386

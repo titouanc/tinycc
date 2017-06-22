@@ -17,7 +17,7 @@ int printInt(int n){
     } else {
         _printInt(n);
     }
-    print(10);
+    print('\n');
     return 1;
 }
 
@@ -26,7 +26,7 @@ int readInt(){
     r = 0;
     char c;
     c = read();
-    while (c != 10){
+    while (c != '\n'){
         r *= 10;
         r += (c - '0');
     }

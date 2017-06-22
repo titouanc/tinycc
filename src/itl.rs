@@ -202,30 +202,61 @@ impl Block {
         }
     }
 
-    fn multiply(&mut self, rval: &RVal, cons: i32) -> Direct {
+    fn multiply(&mut self, r1: &RVal, r2: &RVal) -> Direct {
         use self::RVal::*;
 
-        match rval {
-            &Immediate(ref n) => Direct::Immediate(n * cons),
+        if &Immediate(0) == r1 || &Immediate(0) == r2 {
+            return Direct::Immediate(0);
+        }
+        if &Immediate(1) == r1 {
+            return r2.to_direct();
+        }
+        if &Immediate(1) == r2 {
+            return r1.to_direct();
+        }
+
+        match (r1, r2) {
+            (&Immediate(ref l), &Immediate(ref r)) => Direct::Immediate(l * r),
             _ => {
                 let dest = self.tmp_var();
                 self.code.push(OpCode::BinOp(dest.clone(), Operator::Mul,
-                                             rval.clone(), Immediate(cons)));
+                                             r1.clone(), r2.clone()));
                 dest.to_direct()
             }
         }
     }
 
-    fn add(&mut self, rval: &RVal, cons: i32) -> Direct {
+    fn add(&mut self, r1: &RVal, r2: &RVal) -> Direct {
         use self::RVal::*;
 
-        match rval {
-            &Immediate(ref n) => Direct::Immediate(n + cons),
+        if &Immediate(0) == r1 {
+            return r2.to_direct();
+        }
+        if &Immediate(0) == r2 {
+            return r1.to_direct();
+        }
+
+        match (r1, r2) {
+            (&Immediate(ref l), &Immediate(ref r)) => Direct::Immediate(l + r),
             _ => {
                 let dest = self.tmp_var();
                 self.code.push(OpCode::BinOp(dest.clone(), Operator::Add,
-                                             rval.clone(), Immediate(cons)));
+                                             r1.clone(), r2.clone()));
                 dest.to_direct()
+            }
+        }
+    }
+
+    fn internalize_array_offset(&mut self, lval: &ast::LValue, typ: &Type) -> Direct {
+        match lval {
+            &ast::LValue::Identifier(_) => Direct::Immediate(0),
+            &ast::LValue::ArrayItem(ref l, ref expr) => {
+                let t = typ.inner();
+                let innerpart = self.internalize_array_offset(l, &t);
+                let off = self.internalize_expression(expr);
+                let stride = t.size() / t.base().size();
+                let outerpart = self.multiply(&off, &RVal::Immediate(stride as i32));
+                self.add(&innerpart.to_rval(), &outerpart.to_rval())
             }
         }
     }
@@ -236,11 +267,8 @@ impl Block {
         match lval {
             &ast::LValue::Identifier(ref name) => Variable(name.to_string()),
             &ast::LValue::ArrayItem(ref l, ref expr) => {
-                let off = self.internalize_expression(expr);
-                let t = self.type_for_name(l.name()).inner();
-                let stride = t.size() / t.base().size();
-                let offset = self.multiply(&off, stride as i32);
-                Indirect(l.name().to_string(), offset)
+                let t = self.type_for_name(l.name());
+                Indirect(l.name().to_string(), self.internalize_array_offset(lval, &t))
             }
         }
     }
@@ -311,10 +339,11 @@ impl Block {
     fn internalize_loop(&mut self, loop_cond: &ast::Expression,
                                    body: &Vec<ast::Statement>)
     {
-        let cond = self.internalize_expression(loop_cond);
-        let sub_body = self.sub()._internalize(body);
         let before_cond = self.code.len();
-        let after_body = 2 + before_cond + sub_body.code.len();
+        let cond = self.internalize_expression(loop_cond);
+        let after_cond = self.code.len();
+        let sub_body = self.sub()._internalize(body);
+        let after_body = 2 + after_cond + sub_body.code.len();
         self.code.push(OpCode::If(cond, after_body));
         self.merge(& sub_body);
         self.code.push(OpCode::Goto(before_cond));

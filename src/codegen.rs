@@ -118,7 +118,7 @@ impl Assembler {
             Add => {
                 if right == "$1" {
                     self.code.push(format!("incl {}", left));
-                } else {
+                } else if right != "$0" {
                     self.code.push(format!("addl {}, {}", right, left));
                 }
                 left
@@ -126,13 +126,13 @@ impl Assembler {
             Sub => {
                 if right == "$1" {
                     self.code.push(format!("decl {}", left));
-                } else {
+                } else if right != "$0" {
                     self.code.push(format!("subl {}, {}", right, left));
                 }
                 left
             },
             Mul => {
-                if let &RVal::Immediate(_) = r {
+                if let &RVal::Immediate(ref x) = r {
                     self.code.push(format!("movl {}, %ecx", right));
                     self.code.push(format!("imull %ecx"));
                 } else {
@@ -178,7 +178,6 @@ impl Assembler {
                 self.code.push(format!("xorl {}, {}", right, left));
                 left
             }
-            _ => {panic!("UNKNOWN OP");}
         };
         if dest != &LVal::Discard {
             let dest_val = self.lookup_lval(dest);

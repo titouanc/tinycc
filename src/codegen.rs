@@ -108,7 +108,83 @@ impl Assembler {
         self.code.push(format!("movl $0, %eax"));
         self.code.push(format!("{} %al", res_op));
         "%eax".to_string()
-    } 
+    }
+
+    fn assemble_binop(&mut self, dest: &LVal, op: &Operator, l: &RVal, r: &RVal) {
+        use ast::Operator::*;
+        let left = self.lookup_rval(l, true);
+        let right = self.lookup_rval(r, false);
+        let res_reg = match *op {
+            Add => {
+                if right == "$1" {
+                    self.code.push(format!("incl {}", left));
+                } else {
+                    self.code.push(format!("addl {}, {}", right, left));
+                }
+                left
+            },
+            Sub => {
+                if right == "$1" {
+                    self.code.push(format!("decl {}", left));
+                } else {
+                    self.code.push(format!("subl {}, {}", right, left));
+                }
+                left
+            },
+            Mul => {
+                if let &RVal::Immediate(_) = r {
+                    self.code.push(format!("movl {}, %ecx", right));
+                    self.code.push(format!("imull %ecx"));
+                } else {
+                    self.code.push(format!("imull {}", right));
+                }
+                left
+            },
+            Div => {
+                self.code.push(format!("movl $0, %edx"));
+                if let &RVal::Immediate(_) = r {
+                    self.code.push(format!("movl {}, %ecx", right));
+                    self.code.push(format!("idivl %ecx"));
+                } else {
+                    self.code.push(format!("idivl {}", right));
+                }
+                left
+            },
+            Mod => {
+                self.code.push(format!("movl $0, %edx"));
+                if let &RVal::Immediate(_) = r {
+                    self.code.push(format!("movl {}, %ecx", right));
+                    self.code.push(format!("idivl %ecx"));
+                } else {
+                    self.code.push(format!("idivl {}", right));
+                }
+                "%edx".to_string()
+            },
+            Eql => self.comparison_op("sete", left, right),
+            NotEql => self.comparison_op("setne", left, right),
+            Lt => self.comparison_op("setb", left, right),
+            Lte => self.comparison_op("setbe", left, right),
+            Gt => self.comparison_op("seta", left, right),
+            Gte => self.comparison_op("setae", left, right),
+            BitAnd | And => {
+                self.code.push(format!("andl {}, {}", right, left));
+                left
+            },
+            BitOr | Or => {
+                self.code.push(format!("orl {}, {}", right, left));
+                left
+            },
+            BitXor => {
+                self.code.push(format!("xorl {}, {}", right, left));
+                left
+            }
+            _ => {panic!("UNKNOWN OP");}
+        };
+        if dest != &LVal::Discard {
+            let dest_val = self.lookup_lval(dest);
+            self.code.push(format!("movl {}, {}", res_reg, dest_val));
+        }
+    }
 
     fn assemble_opcode(&mut self, func_name: &String, op: &OpCode) {
         match op {
@@ -117,72 +193,8 @@ impl Assembler {
                 let l = self.lookup_lval(dest);
                 self.code.push(format!("movl {}, {}", r, l));
             },
-            &BinOp(ref dest, ref op, ref l, ref r) => {
-                use ast::Operator::*;
-                let left = self.lookup_rval(l, true);
-                let right = self.lookup_rval(r, false);
-                let res_reg = match *op {
-                    Add => {
-                        self.code.push(format!("addl {}, {}", right, left));
-                        left
-                    },
-                    Sub => {
-                        self.code.push(format!("subl {}, {}", right, left));
-                        left
-                    },
-                    Mul => {
-                        if let &RVal::Immediate(_) = r {
-                            self.code.push(format!("movl {}, %ecx", right));
-                            self.code.push(format!("imull %ecx"));
-                        } else {
-                            self.code.push(format!("imull {}", right));
-                        }
-                        left
-                    },
-                    Div => {
-                        self.code.push(format!("movl $0, %edx"));
-                        if let &RVal::Immediate(_) = r {
-                            self.code.push(format!("movl {}, %ecx", right));
-                            self.code.push(format!("idivl %ecx"));
-                        } else {
-                            self.code.push(format!("idivl {}", right));
-                        }
-                        left
-                    },
-                    Mod => {
-                        self.code.push(format!("movl $0, %edx"));
-                        if let &RVal::Immediate(_) = r {
-                            self.code.push(format!("movl {}, %ecx", right));
-                            self.code.push(format!("idivl %ecx"));
-                        } else {
-                            self.code.push(format!("idivl {}", right));
-                        }
-                        "%edx".to_string()
-                    },
-                    Eql => self.comparison_op("sete", left, right),
-                    NotEql => self.comparison_op("setne", left, right),
-                    Lt => self.comparison_op("setb", left, right),
-                    Lte => self.comparison_op("setbe", left, right),
-                    Gt => self.comparison_op("seta", left, right),
-                    Gte => self.comparison_op("setae", left, right),
-                    BitAnd | And => {
-                        self.code.push(format!("andl {}, {}", right, left));
-                        left
-                    },
-                    BitOr | Or => {
-                        self.code.push(format!("orl {}, {}", right, left));
-                        left
-                    },
-                    BitXor => {
-                        self.code.push(format!("xorl {}, {}", right, left));
-                        left
-                    }
-                    _ => {panic!("UNKNOWN OP");}
-                };
-                if dest != &LVal::Discard {
-                    let dest_val = self.lookup_lval(dest);
-                    self.code.push(format!("movl {}, {}", res_reg, dest_val));
-                }
+            &BinOp(ref dest, ref oper, ref l, ref r) => {
+                self.assemble_binop(dest, oper, l, r);
             },
             &Goto(ref jmp) => {
                 self.code.push(format!("jmp __{}_{}", func_name, jmp));

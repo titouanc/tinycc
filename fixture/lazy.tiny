@@ -1,0 +1,30 @@
+int println(int c){
+    print(c);
+    print('\n');
+}
+
+int f(){
+    println('f');
+    return 1;
+}
+
+int g(){
+    println('g');
+    return 0;
+}
+
+int tiny(){
+    if (f() && g()){
+        println('&');
+    } else {
+        println('!');
+    }
+
+    if (f() || g()){
+        println('|');
+    } else {
+        println('!');
+    }
+
+    return 0;
+}

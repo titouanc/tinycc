@@ -17,6 +17,8 @@
 #define  MEMSIZE 1024
 #define PROGSIZE 1024
 
+// Hello world: ++++++++++[>+++++++>++++++++++>+++>+<<<<-]>++.>+.+++++++..+++.>++.<<+++++++++++++++.>.+++.------.--------.>+.>.
+
 int init(ARRAY(char,MEMSIZE,mem)){
     int i;
     for(i=0, i<lengthOf(mem), i++, {
@@ -85,7 +87,9 @@ int tiny(){
             pc = search_matching(prog, pc+1, '[', ']', 1);
         } else if (instr == ']' && mem[ptr] != 0){
             pc = search_matching(prog, pc-1, ']', '[', 0-1);
-        } else {}
+        } else {
+            print('!');
+        }
         pc++;
         instr = prog[pc];
     }

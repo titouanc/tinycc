@@ -297,11 +297,27 @@ impl Block {
             },
             &InfixOp(ref op, ref left, ref right) => {
                 let dest = self.tmp_var();
-                let l = self.internalize_expression(left);
-                let r = self.internalize_expression(right);
-                let opcode = OpCode::BinOp(dest.clone(), *op, l, r);
-                self.code.push(opcode);
-                dest.to_rval()
+                if *op == Operator::And {
+                    // Rewrite (a && b) as (a ? (b ? 1 : 0) : 0)
+                    self.internalize_ternary(left, 
+                                             &Ternary(Box::new((**right).clone()),
+                                                     Box::new(Lit(1)),
+                                                     Box::new(Lit(0))),
+                                             &Lit(0))
+                } else if *op == Operator::Or {
+                    // Rewrite (a || b) as (a ? 1 : (b ? 1 : 0))
+                    self.internalize_ternary(left,
+                                             &Lit(1),
+                                             &Ternary(Box::new((**right).clone()),
+                                                     Box::new(Lit(1)),
+                                                     Box::new(Lit(0))))
+                } else {
+                    let l = self.internalize_expression(left);
+                    let r = self.internalize_expression(right);
+                    let opcode = OpCode::BinOp(dest.clone(), *op, l, r);
+                    self.code.push(opcode);
+                    dest.to_rval()
+                }
             },
             &Ternary(ref cond, ref if_true, ref if_false) => {
                 self.internalize_ternary(cond, if_true, if_false)

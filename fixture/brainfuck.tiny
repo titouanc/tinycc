@@ -3,7 +3,7 @@
 #define _TINY
 
 #ifdef _TINY
-#define for(init, cond, incr, body) init; while (cond) {if (1) body incr;}
+#include "tiny.lib"
 #define ARRAY(type, size, name) type[size] name
 #else
 #define ARRAY(type, size, name) type name[size]

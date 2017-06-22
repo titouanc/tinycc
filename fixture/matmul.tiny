@@ -1,6 +1,4 @@
-#define for(init, cond, incr, body) init; while (cond) {if (1) body incr;}
-
-#include "io.tinylib"
+#include "tiny.lib"
 
 #define M 20
 #define N 10
@@ -41,13 +39,25 @@ int tiny(){
 
     init(A, B, C);
 
+    print('='); print('A'); print('\n');
     A[0][0] = 1;
+    printInt(A[0][0]);
     A[M-1][N-1] = 6;
+    printInt(A[M-1][N-1]);
+
+    print('='); print('B'); print('\n');
     B[0][0] = 42;
+    printInt(B[0][0]);
     B[N-1][O-1] = 7;
+    printInt(B[N-1][O-1]);
+
+    print('='); print('C'); print('\n');
+    printInt(C[0][0]);
+    printInt(C[M-1][O-1]);
 
     matmul(A, B, C);
 
+    print('='); print('C'); print('\n');
     printInt(C[0][0]);
     printInt(C[M-1][O-1]);
 

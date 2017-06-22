@@ -1,4 +1,4 @@
-#include "io.tinylib"
+#include "tiny.lib"
 
 char charvar;
 int intvar;

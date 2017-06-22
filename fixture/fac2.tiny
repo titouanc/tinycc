@@ -1,4 +1,4 @@
-#include "io.tinylib"
+#include "tiny.lib"
 
 int _fac(int acc, int n){
     return (n <= 1) ? acc : _fac(acc*n, n-1);

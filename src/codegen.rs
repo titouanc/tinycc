@@ -1,6 +1,7 @@
 use ::itl::*;
 use ::itl::OpCode::*;
 use ::ast::Type;
+use ::ast::Operator;
 use std::collections::HashMap;
 
 pub struct Assembler {
@@ -49,14 +50,16 @@ impl Assembler {
         use itl::Direct::*;
 
         let var_ref = self.lookup_variable(name);
+        let typ = self.types.get(name).unwrap();
+        let size = typ.base().size() as i32;
         self.code.push(format!("leal {}, %esi", var_ref));
 
         match off {
-            &Immediate(ref idx) => format!("{}(%esi)", idx),
+            &Immediate(ref idx) => format!("{}(%esi)", idx * size),
             &Variable(ref name) => {
                 let idx = self.lookup_variable(name);
                 self.code.push(format!("movl {}, %ecx", idx));
-                format!("(%esi,%ecx)")
+                format!("(%esi,%ecx,{})", size)
             }
         }
     }

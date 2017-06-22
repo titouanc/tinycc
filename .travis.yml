@@ -5,3 +5,4 @@ addons:
   apt:
     packages:
       - libc6-dev-i386
+      - gcc-multilib

@@ -17,11 +17,7 @@ impl Assembler {
         let mut param_off = 0;
         for &(ref name, ref typ) in blk.params.iter() {
             self.params.insert(name.to_string(), param_off);
-            param_off += if let &Type::ArrayOf(_, _) = typ {
-                4 // Pointer size
-            } else {
-                typ.size() // Value size
-            }
+            param_off += 4;
         }
 
         let mut local_off = 0;
@@ -76,11 +72,16 @@ impl Assembler {
             &Indirect(ref name, ref off) => self.lookup_indirect(name, off),
             &Variable(ref name) => {
                 let r = self.lookup_variable(name);
-                if let Some(&Type::ArrayOf(_, _)) = self.types.get(name) {
-                    self.code.push(format!("leal {}, %eax", r));
-                    "%eax".to_string()
-                } else {
-                    r
+                match self.types.get(name).unwrap() {
+                    &Type::ArrayOf(_, _) => {
+                        self.code.push(format!("leal {}, %eax", r));
+                        "%eax".to_string()
+                    },
+                    &Type::Char => {
+                        self.code.push(format!("movzbl {}, %eax", r));
+                        "%eax".to_string()
+                    }
+                    _ => r
                 }
             }
         };
@@ -112,6 +113,26 @@ impl Assembler {
         self.code.push(format!("movl $0, %eax"));
         self.code.push(format!("{} %al", res_op));
         "%eax".to_string()
+    }
+
+    fn rval_is_byte(&self, rval: &RVal) -> bool {
+        use itl::RVal::*;
+
+        match rval {
+            &Variable(ref name) | &Indirect(ref name, _) =>
+                self.types.get(name).unwrap() == &Type::Char,
+            _ => false
+        }
+    }
+
+    fn lval_is_byte(&self, lval: &LVal) -> bool {
+        use itl::LVal::*;
+
+        match lval {
+            &Variable(ref name) | &Indirect(ref name, _) =>
+                self.types.get(name).unwrap() == &Type::Char,
+            _ => false
+        }
     }
 
     fn assemble_binop(&mut self, dest: &LVal, op: &Operator, l: &RVal, r: &RVal) {
@@ -185,7 +206,11 @@ impl Assembler {
         };
         if dest != &LVal::Discard {
             let dest_val = self.lookup_lval(dest);
-            self.code.push(format!("movl {}, {}", res_reg, dest_val));
+            if self.lval_is_byte(dest){
+                self.code.push(format!("movb {}, {}", res_reg, dest_val));
+            } else {
+                self.code.push(format!("movl {}, {}", res_reg, dest_val));
+            }
         }
     }
 
@@ -194,7 +219,11 @@ impl Assembler {
             &Assign(ref dest, ref val) => {
                 let r = self.lookup_rval(val, true);
                 let l = self.lookup_lval(dest);
-                self.code.push(format!("movl {}, {}", r, l));
+                if self.lval_is_byte(dest){
+                    self.code.push(format!("movb {}, {}", r, l));
+                } else {
+                    self.code.push(format!("movl {}, {}", r, l));
+                }
             },
             &BinOp(ref dest, ref oper, ref l, ref r) => {
                 self.assemble_binop(dest, oper, l, r);
@@ -210,7 +239,13 @@ impl Assembler {
             &Call(ref dest, ref func, ref args) => {
                 for arg in args.iter().rev() {
                     let val = self.lookup_rval(arg, false);
-                    self.code.push(format!("pushl {}", val));
+                    let to_push = if self.rval_is_byte(arg) && &val[0..1] != "%" {
+                        self.code.push(format!("movzbl {}, %ecx", val));
+                        "%ecx".to_string()
+                    } else {
+                        val
+                    };
+                    self.code.push(format!("pushl {}", to_push));
                 }
                 self.code.push(format!("call {}", func));
                 if dest != &LVal::Discard {

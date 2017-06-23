@@ -107,7 +107,7 @@ pub enum OpCode {
     BinOp(LVal, Operator, RVal, RVal),
     Goto(usize),
     If(RVal, usize),
-    Call(LVal, String, Vec<RVal>),
+    Call(LVal, String, Vec<RVal>, bool),
     Return(RVal),
 }
 
@@ -127,7 +127,7 @@ impl OpCode {
         match self {
             &Assign(ref l, _) => l.clone(),
             &BinOp(ref l, _, _, _) => l.clone(),
-            &Call(ref l, _, _) => l.clone(),
+            &Call(ref l, _, _, _) => l.clone(),
             _ => LVal::Discard,
         }
     }
@@ -138,8 +138,8 @@ impl OpCode {
             &Assign(_, ref x) => Assign(lval, x.clone()),
             &BinOp(_, ref op, ref l, ref r) =>
                 BinOp(lval, op.clone(), l.clone(), r.clone()),
-            &Call(_, ref name, ref args) =>
-                Call(lval, name.to_string(), args.clone()),
+            &Call(_, ref name, ref args, ref is_tail) =>
+                Call(lval, name.to_string(), args.clone(), *is_tail),
             _ => self.clone(),
         }
     }
@@ -155,7 +155,13 @@ impl fmt::Display for OpCode {
             BinOp(ref dest, ref op, ref l, ref r) => write!(f, "{}{} {} {}", dest, l, op, r),
             Goto(ref pos) => write!(f, "\x1b[1;36mGOTO\x1b[0m \x1b[33m{}\x1b[0m", pos),
             If(ref cond, ref pos) => write!(f, "\x1b[1;36mIF\x1b[0m {} \x1b[1;36mELSE GOTO\x1b[0m \x1b[33m{}\x1b[0m", cond, pos),
-            Call(ref dest, ref name, ref args) => write!(f, "{}\x1b[1;32mCALL\x1b[0m {} {:?}", dest, name, args),
+            Call(ref dest, ref name, ref args, ref tail) => {
+                if *tail {
+                    write!(f, "{}\x1b[1;32mTAIL CALL\x1b[0m {} {:?}", dest, name, args)
+                } else {
+                    write!(f, "{}\x1b[1;32mCALL\x1b[0m {} {:?}", dest, name, args)
+                }
+            },
             Return(ref val) => write!(f, "\x1b[1;32mRETURN\x1b[0m {}", val),
         }
     }
@@ -172,6 +178,7 @@ pub struct Block {
     ret: Type,
     intermediate: usize,
     max_intermediate: usize,
+    is_top: bool,
 }
 
 impl Block {
@@ -198,7 +205,8 @@ impl Block {
             code: vec![],
             ret: Type::Int,
             intermediate: self.intermediate,
-            max_intermediate: self.max_intermediate
+            max_intermediate: self.max_intermediate,
+            is_top: false
         }
     }
 
@@ -253,7 +261,7 @@ impl Block {
             &ast::LValue::ArrayItem(ref l, ref expr) => {
                 let t = typ.inner();
                 let innerpart = self.internalize_array_offset(l, &t);
-                let off = self.internalize_expression(expr);
+                let off = self.internalize_expression(expr, false);
                 let stride = t.size() / t.base().size();
                 let outerpart = self.multiply(&off, &RVal::Immediate(stride as i32));
                 self.add(&innerpart.to_rval(), &outerpart.to_rval())
@@ -273,7 +281,7 @@ impl Block {
         }
     }
 
-    fn internalize_expression(&mut self, expr: &ast::Expression) -> RVal {
+    fn internalize_expression(&mut self, expr: &ast::Expression, is_tail: bool) -> RVal {
         use self::RVal::*;
         use ast::Expression::*;
 
@@ -283,10 +291,10 @@ impl Block {
             &LValue(ref lval) => {self.internalize_lvalue(lval).to_rval()},
             &Funcall(ref name, ref args_expr) => {
                 let args = args_expr.iter()
-                                    .map(|ref arg| self.internalize_expression(arg))
+                                    .map(|ref arg| self.internalize_expression(arg, false))
                                     .collect();
                 let dest = self.tmp_var();
-                let op = OpCode::Call(dest.clone(), name.to_string(), args);
+                let op = OpCode::Call(dest.clone(), name.to_string(), args, is_tail);
                 self.code.push(op);
                 dest.to_rval()
             },
@@ -312,8 +320,8 @@ impl Block {
                                                      Box::new(Lit(1)),
                                                      Box::new(Lit(0))))
                 } else {
-                    let l = self.internalize_expression(left);
-                    let r = self.internalize_expression(right);
+                    let l = self.internalize_expression(left, false);
+                    let r = self.internalize_expression(right, false);
                     let opcode = OpCode::BinOp(dest.clone(), *op, l, r);
                     self.code.push(opcode);
                     dest.to_rval()
@@ -342,14 +350,14 @@ impl Block {
                                       if_false: &ast::Expression) -> RVal
     {
         let res = self.tmp_var();
-        let cond = self.internalize_expression(if_cond);
+        let cond = self.internalize_expression(if_cond, false);
         
         let mut sub_true = self.sub();
-        let expr_true = sub_true.internalize_expression(if_true);
+        let expr_true = sub_true.internalize_expression(if_true, false);
         sub_true.code.push(OpCode::Assign(res.clone(), expr_true));
 
         let mut sub_false = self.sub();
-        let expr_false = sub_false.internalize_expression(if_false);
+        let expr_false = sub_false.internalize_expression(if_false, false);
         sub_false.code.push(OpCode::Assign(res.clone(), expr_false));
         
         let after_true = 2 + self.code.len() + sub_true.code.len();
@@ -367,7 +375,7 @@ impl Block {
                                         if_true: &Vec<ast::Statement>,
                                         if_false: &Vec<ast::Statement>)
     {
-        let cond = self.internalize_expression(if_cond);
+        let cond = self.internalize_expression(if_cond, false);
         let sub_true = self.sub()._internalize(if_true);
         let sub_false = self.sub()._internalize(if_false);
         let after_true_block = 2 + self.code.len() + sub_true.code.len();
@@ -382,7 +390,7 @@ impl Block {
                                    body: &Vec<ast::Statement>)
     {
         let before_cond = self.code.len();
-        let cond = self.internalize_expression(loop_cond);
+        let cond = self.internalize_expression(loop_cond, false);
         let after_cond = self.code.len();
         let sub_body = self.sub()._internalize(body);
         let after_body = 2 + after_cond + sub_body.code.len();
@@ -391,7 +399,7 @@ impl Block {
         self.code.push(OpCode::Goto(before_cond));
     }
 
-    fn internalize_statement(&mut self, st: &ast::Statement) {
+    fn internalize_statement(&mut self, st: &ast::Statement, is_tail: bool) {
         use ast::Statement::*;
 
         match st {
@@ -399,7 +407,7 @@ impl Block {
                 self.frame.insert(name.to_string(), (AddressSpace::Local, typ.clone()));
             },
             &RValue(ref expr) => {
-                self.internalize_expression(expr);
+                self.internalize_expression(expr, is_tail);
             }
             &Condition(ref cond, ref if_true, ref if_false) => {
                 self.internalize_condition(cond, if_true, if_false);
@@ -409,20 +417,22 @@ impl Block {
             }
             &Assign(ref left, ref expr) => {
                 let lval = self.internalize_lvalue(left);
-                let rval = self.internalize_expression(expr);
+                let rval = self.internalize_expression(expr, is_tail);
                 self.code.push(OpCode::Assign(lval, rval));
             }
             &Return(ref expr) => {
-                let ret = self.internalize_expression(expr);
+                let ret = self.internalize_expression(expr, true);
                 self.code.push(OpCode::Return(ret));
             }
         }
     }
 
     fn _internalize(mut self, body: &Vec<ast::Statement>) -> Block {
-        for st in body.iter() {
+        let last = body.len() as i32 - 1;
+        let top = self.is_top;
+        for (i, st) in body.iter().enumerate() {
             self.intermediate = 0;
-            self.internalize_statement(st);
+            self.internalize_statement(st, top && i as i32 == last);
         }
         self
     }
@@ -437,7 +447,8 @@ impl Block {
             ret: ret.clone(),
             frame: HashMap::new(),
             intermediate: 0,
-            max_intermediate: 0
+            max_intermediate: 0,
+            is_top: true
         };
         for (name, typ) in globals.iter() {
             res.frame.insert(name.to_string(), (AddressSpace::Global, typ.clone()));

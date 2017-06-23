@@ -214,6 +214,46 @@ impl Assembler {
         }
     }
 
+    fn assemble_tail_call(&mut self, func: &String, args: &Vec<RVal>) {
+        /* 1/ Push arguments onto the stack */
+        for arg in args.iter() {
+            let val = self.lookup_rval(arg, false);
+            let to_push = if self.rval_is_byte(arg) && &val[0..1] != "%" {
+                self.code.push(format!("movzbl {}, %ecx", val));
+                "%ecx".to_string()
+            } else {
+                val
+            };
+            self.code.push(format!("pushl {}", to_push));
+        }
+
+        /* 2/ Save oEIP and oEBP into ESI and EDX */
+        self.code.push(format!("movl (%ebp), %esi"));
+        self.code.push(format!("movl 4(%ebp), %edx"));
+
+        /* 3/ Move new args to their location */
+        let S = 4 * self.params.len() as i32;
+        let dstack = S - 4 * args.len() as i32;
+        for i in 0..args.len() {
+            self.code.push(format!("popl %eax"));
+            let off = S - dstack - 4 * (i as i32);
+            self.code.push(format!("movl %eax, {}(%ebp)", off));
+        }
+
+        /* 4/ Move oEIP and oEBP to their location */
+        self.code.push(format!("movl %esi, {}(%ebp)", dstack));
+        self.code.push(format!("movl %edx, {}(%ebp)", dstack + 4));
+        if dstack > 0 {
+            self.code.push(format!("addl ${}, %ebp", dstack));
+        } else if dstack < 0 {
+            self.code.push(format!("subl ${}, %ebp", -dstack));
+        }
+        self.code.push(format!("leave"));
+
+        /* 5/ JUMP !!! */
+        self.code.push(format!("jmp {}", func));
+    }
+
     fn assemble_opcode(&mut self, func_name: &String, op: &OpCode) {
         match op {
             &Assign(ref dest, ref val) => {
@@ -236,7 +276,11 @@ impl Assembler {
                 self.code.push(format!("testl $1, {}", cond_val));
                 self.code.push(format!("jz __{}_{}", func_name, jmp));
             },
-            &Call(ref dest, ref func, ref args) => {
+            &Call(ref dest, ref func, ref args, ref is_tail) => {
+                if *is_tail {
+                    self.assemble_tail_call(func, args);
+                    return;
+                }
                 for arg in args.iter().rev() {
                     let val = self.lookup_rval(arg, false);
                     let to_push = if self.rval_is_byte(arg) && &val[0..1] != "%" {

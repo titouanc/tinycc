@@ -1,2 +1,4 @@
 target
 src/grammar.rs
+*.s
+*.prog
